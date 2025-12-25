@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FACTSWAY - Legal Drafting Engine</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+Pro:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* --- GLOBAL DESIGN TOKENS --- */
+        :root {
+            --bg-desk: #f0f0eb;
+            --bg-paper: #ffffff;
+            --bg-header: #292524;
+            --accent-primary: #c2410c;
+            --accent-gold: #b45309;
+            --accent-link: #3b82f6;
+            --accent-link-bg: #eff6ff;
+            --text-ink: #1f2937;
+            --text-muted: #6b7280;
+            --border-subtle: #d6d3d1;
+            
+            --status-proven: #15803d;
+            --status-gap: #b91c1c;
+            --status-weak: #d97706;
+            
+            --font-serif: 'Source Serif Pro', serif;
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        /* --- BASE STYLES --- */
+        body { 
+            margin: 0; 
+            background-color: var(--bg-desk); 
+            color: var(--text-ink);
+            font-family: var(--font-sans); 
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        button { font-family: var(--font-sans); }
+
+        /* --- NAVIGATION --- */
+        .app-nav { 
+            background: var(--bg-header); 
+            height: 50px; 
+            display: flex; 
+            align-items: center; 
+            padding: 0 20px; 
+            color: #f5f5f4; 
+            justify-content: space-between; 
+            flex-shrink: 0;
+        }
+        .brand { font-family: var(--font-serif); font-weight: 700; letter-spacing: 0.05em; font-size: 1.1rem; }
+        
+        .binder-nav { 
+            background: var(--bg-header); 
+            padding: 12px 40px 0 40px; 
+            display: flex; 
+            gap: 6px; 
+            flex-shrink: 0;
+        }
+        .tab { 
+            background: #44403c; 
+            color: #a8a29e; 
+            padding: 10px 24px; 
+            border-radius: 6px 6px 0 0; 
+            font-size: 0.85rem; 
+            cursor: pointer; 
+            border: 1px solid #44403c; 
+            border-bottom: none; 
+            transition: background 0.1s;
+        }
+        .tab:hover { background: #57534e; }
+        .tab.active { 
+            background: var(--bg-desk); 
+            color: var(--text-ink); 
+            font-weight: 600; 
+            padding-bottom: 12px; 
+            margin-bottom: -1px; 
+            z-index: 10; 
+            border-color: var(--border-subtle); 
+        }
+
+        /* --- VIEW CONTAINER --- */
+        .main-stage {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: var(--bg-desk);
+        }
+        
+        /* Utility Classes for View Switching */
+        .view-section {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            overflow: auto;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+        }
+        .view-section.active-view {
+            display: flex;
+        }
+
+        /* --- SHARED COMPONENTS --- */
+        .header-row { padding: 30px 40px 20px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .page-title { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; margin: 0; }
+        .subtitle { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+
+        .btn-primary { 
+            background: var(--accent-primary); 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 4px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            font-size: 0.85rem;
+        }
+        .btn-primary:hover { background: #9a3412; }
+        
+        .btn-secondary {
+            background: white;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-ink);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-secondary:hover { background: #f3f4f6; }
+
+        /* Badge Styles */
+        .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; border: 1px solid transparent; }
+        .badge-gray { background: #f3f4f6; color: var(--text-muted); border-color: #e5e7eb; }
+        .badge-blue { background: #eff6ff; color: #1e40af; border-color: #dbeafe; }
+        
+        /* --- VIEW 1: TEMPLATE LIST --- */
+        .template-grid { 
+            padding: 0 40px 40px 40px; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 20px; 
+        }
+        .template-card { 
+            background: var(--bg-paper); 
+            border: 1px solid var(--border-subtle); 
+            border-radius: 6px; 
+            padding: 20px; 
+            position: relative; 
+            transition: all 0.2s; 
+            cursor: pointer; 
+            display: flex; 
+            flex-direction: column; 
+            height: 160px; 
+        }
+        .template-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-color: #9ca3af; }
+        .t-name { font-family: var(--font-serif); font-weight: 700; font-size: 1.1rem; margin-bottom: 8px; }
+        .t-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; flex: 1; }
+        .t-meta { border-top: 1px solid #f3f4f6; margin-top: 16px; padding-top: 12px; display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); }
+
+        /* --- VIEW 3: CASE LIST --- */
+        .case-table-container { margin: 0 40px; background: white; border-radius: 6px; border: 1px solid var(--border-subtle); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px 20px; font-size: 0.75rem; color: var(--text-muted); font-weight: 700; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+        td { padding: 16px 20px; border-bottom: 1px solid #f3f4f6; font-size: 0.9rem; }
+        tr:hover td { background: #f9fafb; cursor: pointer; }
+
+        /* --- VIEW 4: CASE EDITOR --- */
+        .case-layout { display: grid; grid-template-columns: 1fr 350px; gap: 30px; padding: 0 40px 40px 40px; height: 100%; overflow-y: auto; }
+        .section-card { background: white; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 20px; margin-bottom: 20px; }
+        .card-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.1rem; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .draft-item { padding: 12px; border-left: 3px solid var(--accent-primary); background: #fff; border: 1px solid #e5e7eb; border-left-width: 3px; border-radius: 0 4px 4px 0; margin-bottom: 8px; cursor: pointer; transition: 0.1s; }
+        .draft-item:hover { transform: translateX(4px); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+        .info-grid { display: grid; grid-template-columns: 100px 1fr; gap: 12px; font-size: 0.9rem; margin-bottom: 10px; }
+        .info-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+
+        /* --- VIEW 5: DRAFT EDITOR --- */
+        .draft-workspace { display: grid; grid-template-columns: 280px 1fr 320px; height: 100%; }
+        
+        /* Left Outline */
+        .outline-panel { background: #e7e5e4; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; }
+        .tree-node { padding: 8px 16px; font-size: 0.85rem; cursor: pointer; color: var(--text-ink); border-left: 3px solid transparent; }
+        .tree-node:hover { background: rgba(255,255,255,0.5); }
+        .tree-node.active { background: white; border-left-color: var(--accent-primary); font-weight: 600; }
+
+        /* Center Paper */
+        .editor-wrapper { background: var(--bg-desk); display: flex; flex-direction: column; position: relative; }
+        .toolbar { background: white; padding: 8px 16px; border-bottom: 1px solid var(--border-subtle); display: flex; gap: 12px; align-items: center; }
+        
+        .paper-scroll { flex: 1; overflow-y: auto; padding: 40px; display: flex; justify-content: center; }
+        .draft-paper { 
+            background: white; width: 100%; max-width: 800px; padding: 96px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 1100px; 
+            font-family: 'Times New Roman', serif; line-height: 2; font-size: 1.15rem; 
+        }
+
+        /* Chips & Nodes */
+        .citation-node { background: var(--accent-link-bg); color: var(--accent-link); border: 1px solid transparent; border-radius: 4px; padding: 0 4px; font-size: 0.9em; cursor: pointer; }
+        .citation-node:hover { border-color: var(--accent-link); }
+        .variable-chip { background: #E8F4FC; border: 1px solid #4A9EDA; border-radius: 4px; color: #1E5A8A; padding: 0 4px; font-size: 0.9em; display: inline-block; line-height: 1.4; }
+        
+        /* Right Evidence/Map */
+        .evidence-panel { background: white; border-left: 1px solid var(--border-subtle); display: flex; flex-direction: column; overflow: hidden; }
+        .sidebar-tabs { display: flex; border-bottom: 1px solid #e5e7eb; background: #f9fafb; }
+        .sb-tab { flex: 1; padding: 12px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #6b7280; border: none; background: transparent; cursor: pointer; border-bottom: 2px solid transparent; }
+        .sb-tab.active { color: var(--accent-link); border-bottom-color: var(--accent-link); background: white; }
+        
+        .sb-content { flex: 1; overflow-y: auto; padding: 16px; }
+        
+        /* Evidence Map Items */
+        details { border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 8px; overflow: hidden; }
+        summary { padding: 10px; background: #fafafa; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; }
+        .map-item { padding: 10px; border-top: 1px solid #f3f4f6; font-size: 0.8rem; }
+        .claim-text { font-style: italic; margin-bottom: 4px; }
+        
+        /* --- VIEW 8: VAULT --- */
+        .vault-layout { display: flex; height: 100%; padding-top: 1px; }
+        .v-sidebar { width: 250px; background: #e7e5e4; border-right: 1px solid var(--border-subtle); padding: 20px; }
+        .folder-item { padding: 8px 12px; margin-bottom: 4px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+        .folder-item.active { background: white; font-weight: 600; color: var(--accent-primary); }
+        .file-grid { padding: 30px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; overflow-y: auto; flex: 1; }
+        .file-card { background: white; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 16px; cursor: pointer; transition: transform 0.1s; }
+        .file-card:hover { transform: translateY(-2px); border-color: #9ca3af; }
+
+        /* --- MODALS --- */
+        .modal-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.5); z-index: 1000; 
+            display: none; align-items: center; justify-content: center; 
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-card { background: white; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; max-width: 90vw; max-height: 90vh; }
+
+    </style>
+</head>
+<body>
+
+    <nav class="app-nav">
+        <div class="brand">FACTSWAY</div>
+        <div style="font-size: 0.8rem; opacity: 0.8;">Alex Cruz (Pro Se)</div>
+    </nav>
+
+    <div class="binder-nav">
+        <div class="tab" id="nav-cases" onclick="navigateTo('cases')">Cases</div>
+        <div class="tab active" id="nav-templates" onclick="navigateTo('templates')">Templates</div>
+        <div class="tab" id="nav-vault" onclick="navigateTo('vault')" style="opacity: 0.5; cursor: not-allowed;">Vault</div>
+    </div>
+
+    <main class="main-stage">
+
+        <section id="view-templates" class="view-section active-view">
+            <div class="header-row">
+                <div>
+                    <div class="subtitle">Library</div>
+                    <h1 class="page-title">Document Templates</h1>
+                </div>
+                <button class="btn-primary" onclick="toggleModal('modal-new-template')">
+                    <i data-lucide="plus" style="width:16px;"></i> New Template
+                </button>
+            </div>
+            
+            <div class="template-grid">
+                <div class="template-card" onclick="openTemplate('Texas District Standard')">
+                    <span class="badge badge-gray" style="position:absolute; top:20px; right:20px;">Texas District</span>
+                    <div class="t-name">Standard Motion</div>
+                    <div class="t-desc">General purpose motion format with standard Texas caption style and signature block.</div>
+                    <div class="t-meta">
+                        <span>Updated 2 days ago</span>
+                        <span><strong>14</strong> Drafts</span>
+                    </div>
+                </div>
+                <div class="template-card">
+                    <span class="badge badge-gray" style="position:absolute; top:20px; right:20px;">Federal Civil</span>
+                    <div class="t-name">Federal Complaint</div>
+                    <div class="t-desc">FRCP compliant format with sequential line numbering.</div>
+                    <div class="t-meta">
+                        <span>Updated 1 week ago</span>
+                        <span><strong>3</strong> Drafts</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-template-builder" class="view-section">
+            <div style="display: grid; grid-template-columns: 350px 1fr; height: 100%;">
+                <div style="background: #f9fafb; border-right: 1px solid var(--border-subtle); padding: 20px;">
+                    <div style="margin-bottom:20px;">
+                        <div class="subtitle">Editing Template</div>
+                        <div class="t-name">Texas District Standard</div>
+                    </div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Settings panels go here...</div>
+                </div>
+                <div style="background: var(--bg-desk); padding: 40px; overflow: auto; display: flex; justify-content: center;">
+                    <div style="background: white; width: 100%; max-width: 800px; height: 1000px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 80px;">
+                        <div style="text-align: center; font-family: 'Times New Roman';">
+                            IN THE DISTRICT COURT OF BEXAR COUNTY, TEXAS
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-cases" class="view-section">
+            <div class="header-row">
+                <div>
+                    <div class="subtitle">Template: Texas District Standard</div>
+                    <h1 class="page-title">Cases</h1>
+                </div>
+                <button class="btn-primary"><i data-lucide="plus" style="width:16px;"></i> New Case</button>
+            </div>
+            <div class="case-table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>CAUSE NUMBER</th>
+                            <th>CASE NAME</th>
+                            <th>COURT</th>
+                            <th>STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr onclick="openCase('JS7 Investments v. Cruz')">
+                            <td style="font-family: var(--font-mono);">2022-CI-08479</td>
+                            <td style="font-weight: 600;">JS7 Investments v. Cruz</td>
+                            <td>57th District</td>
+                            <td><span class="badge badge-blue">Active</span></td>
+                        </tr>
+                        <tr>
+                            <td style="font-family: var(--font-mono);">2023-CI-11204</td>
+                            <td style="font-weight: 600;">Estate of P. Jones</td>
+                            <td>Probate Court 1</td>
+                            <td><span class="badge badge-gray">Archived</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="view-case-editor" class="view-section">
+            <div class="header-row">
+                <div>
+                    <div class="subtitle">2022-CI-08479</div>
+                    <h1 class="page-title">JS7 Investments v. Cruz</h1>
+                </div>
+                <button class="btn-primary"><i data-lucide="plus" style="width:16px;"></i> New Draft</button>
+            </div>
+            <div class="case-layout">
+                <div>
+                    <div class="section-card">
+                        <div class="card-title">Active Drafts</div>
+                        <div class="draft-item" onclick="openDraft('Motion to Compel Discovery')">
+                            <div style="font-weight: 600;">Motion to Compel Discovery</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Edited 2 hours ago</div>
+                        </div>
+                        <div class="draft-item" style="border-left-color: #d1d5db;">
+                            <div style="font-weight: 600;">Defendant's Original Answer</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Filed Oct 15, 2024</div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="card-title">Court & Parties <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;">Edit</button></div>
+                        <div class="info-grid">
+                            <div class="info-label">Court</div>
+                            <div>57th Judicial District</div>
+                            <div class="info-label">Plaintiff</div>
+                            <div>JS7 Investments, LLC</div>
+                            <div class="info-label">Defendant</div>
+                            <div>Alex Cruz <span class="badge badge-gray">Pro Se</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-card" style="background: #f9fafb;">
+                        <div class="card-title">Evidence <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" onclick="toggleModal('modal-upload')">+ Upload</button></div>
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            <div style="background:white; padding:10px; border:1px solid #e5e7eb; border-radius:4px; display:flex; align-items:center; gap:8px;">
+                                <span>📎</span> <span style="font-size:0.85rem; font-weight:600;">Signed Contract</span>
+                            </div>
+                            <div style="background:white; padding:10px; border:1px solid #e5e7eb; border-radius:4px; display:flex; align-items:center; gap:8px;">
+                                <span>📚</span> <span style="font-size:0.85rem; font-weight:600;">Smith v. Jones</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-draft" class="view-section">
+            <div class="draft-workspace">
+                <aside class="outline-panel">
+                    <div style="padding: 12px; font-weight:700; color:var(--text-muted); background:#f5f5f4; border-bottom:1px solid var(--border-subtle);">OUTLINE</div>
+                    <div style="padding: 10px 0;">
+                        <div class="tree-node">I. INTRODUCTION</div>
+                        <div class="tree-node active">II. FACTS</div>
+                        <div class="tree-node" style="padding-left: 24px;">A. The Contract</div>
+                        <div class="tree-node">III. ARGUMENT</div>
+                    </div>
+                </aside>
+
+                <main class="editor-wrapper">
+                    <div class="toolbar">
+                        <div style="display:flex; gap:4px; border-right:1px solid #e5e7eb; padding-right:8px;">
+                            <button style="border:none; background:none; cursor:pointer; font-weight:bold;">B</button>
+                            <button style="border:none; background:none; cursor:pointer; font-style:italic;">I</button>
+                        </div>
+                        <div style="display:flex; gap:4px; border-right:1px solid #e5e7eb; padding-right:8px;">
+                            <button style="border:none; background:none; cursor:pointer; font-size:0.85rem;">H1</button>
+                            <button style="border:none; background:none; cursor:pointer; font-size:0.85rem;">H2</button>
+                        </div>
+                        <button style="border:1px solid transparent; background:#e0f2fe; color:#0284c7; border-radius:4px; padding:4px 8px; font-size:0.8rem; cursor:pointer;">+ Citation</button>
+                        
+                        <div style="position:relative;">
+                             <button style="border:1px solid #e5e7eb; background:white; border-radius:4px; padding:4px 8px; font-size:0.8rem; cursor:pointer;">{{ }} Var</button>
+                        </div>
+                        
+                        <div style="margin-left:auto;">
+                            <button class="btn-primary" style="font-size:0.8rem; padding:6px 12px;" onclick="toggleModal('modal-export')">Export</button>
+                        </div>
+                    </div>
+
+                    <div class="paper-scroll">
+                        <div class="draft-paper">
+                            <p style="text-align:center; color:var(--text-muted); margin-bottom:40px;">[CASE CAPTION]</p>
+                            <h2 style="text-align:center; text-transform:uppercase; font-size:1rem; font-weight:bold;">II. FACTS</h2>
+                            <p>On or about January 15, 2024, the parties entered into a valid agreement. See <span class="citation-node">Exhibit A</span>.</p>
+                            <p>Pursuant to <a href="#" style="color:var(--accent-link); text-decoration:none; border-bottom:1px dotted;">Section III, infra</a>, the deadline is <span class="variable-chip">&lt;Response Deadline&gt;</span>.</p>
+                        </div>
+                    </div>
+                </main>
+
+                <aside class="evidence-panel">
+                    <div class="sidebar-tabs">
+                        <button class="sb-tab" onclick="switchSidebarTab('library')">Library</button>
+                        <button class="sb-tab active" onclick="switchSidebarTab('map')">Map</button>
+                    </div>
+                    
+                    <div id="sb-map" class="sb-content">
+                        <details open style="border-left: 3px solid var(--status-proven);">
+                            <summary>Supported (1)<span class="badge badge-gray">1</span></summary>
+                            <div class="map-item">
+                                <div class="claim-text">"Defendant failed to deliver..."</div>
+                                <div style="font-size:0.7rem; color:var(--text-muted);">Supp: Exhibit A</div>
+                            </div>
+                        </details>
+
+                        <details open style="border-left: 3px solid var(--status-weak);">
+                            <summary style="color:var(--status-weak);">Unsupported (1) ⚠️</summary>
+                            <div class="map-item" style="background:#fffbeb;">
+                                <div class="claim-text">"Plaintiff willfully ignored..."</div>
+                                <button class="btn-secondary" style="font-size:0.7rem; width:100%; margin-top:4px;">+ Add Support</button>
+                            </div>
+                        </details>
+                    </div>
+
+                    <div id="sb-library" class="sb-content" style="display:none;">
+                        <div style="margin-bottom:10px;"><input type="text" placeholder="Search..." style="width:100%; padding:6px; border:1px solid #d6d3d1; border-radius:4px;"></div>
+                        <div style="font-weight:700; font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">EXHIBITS</div>
+                        <div style="padding:8px; border:1px solid #e5e7eb; border-radius:4px; display:flex; gap:8px; align-items:center; cursor:grab; margin-bottom:8px;">
+                            <span>📎</span> 
+                            <div>
+                                <div style="font-weight:600; font-size:0.85rem;">Signed Contract</div>
+                                <div style="font-size:0.7rem; color:var(--text-muted);">Exhibit A</div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <section id="view-vault" class="view-section">
+            <div class="vault-layout">
+                <aside class="v-sidebar">
+                    <div class="folder-item active"><i data-lucide="folder-open" style="width:16px;"></i> All Evidence</div>
+                    <div class="folder-item"><i data-lucide="folder" style="width:16px;"></i> Exhibits</div>
+                    <div class="folder-item"><i data-lucide="book" style="width:16px;"></i> Case Law</div>
+                </aside>
+                <main style="flex:1; display:flex; flex-direction:column;">
+                    <div class="header-row" style="padding:16px 30px; border-bottom:1px solid var(--border-subtle); background:#f5f5f4;">
+                        <div style="font-weight:700; font-size:1.1rem; font-family:var(--font-serif);">Vault: JS7 v. Cruz</div>
+                        <button class="btn-primary" onclick="toggleModal('modal-upload')"><i data-lucide="upload" style="width:16px;"></i> Upload</button>
+                    </div>
+                    <div class="file-grid">
+                        <div class="file-card">
+                            <div style="font-size:2rem; margin-bottom:10px;">📄</div>
+                            <div style="font-weight:600;">Signed Contract</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">Exhibit A • Cited 3x</div>
+                        </div>
+                        <div class="file-card">
+                            <div style="font-size:2rem; margin-bottom:10px;">📚</div>
+                            <div style="font-weight:600;">Smith v. Jones</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">123 S.W.3d • Cited 1x</div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="modal-upload" class="modal-overlay">
+        <div class="modal-card" style="width:500px;">
+            <div style="padding:16px; border-bottom:1px solid #e5e7eb; font-weight:700; background:#f9fafb; display:flex; justify-content:space-between;">
+                <span>Upload Evidence</span>
+                <span style="cursor:pointer;" onclick="toggleModal('modal-upload')">✕</span>
+            </div>
+            <div style="padding:20px;">
+                <div style="border:2px dashed #d1d5db; padding:40px; text-align:center; border-radius:6px; color:var(--text-muted); margin-bottom:20px; cursor:pointer;">
+                    Drag PDF here or click to browse
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">LABEL</label>
+                    <input type="text" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;" placeholder="e.g. Email Thread">
+                </div>
+            </div>
+            <div style="padding:16px; border-top:1px solid #e5e7eb; text-align:right;">
+                <button class="btn-primary" onclick="toggleModal('modal-upload')">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-export" class="modal-overlay">
+        <div class="modal-card" style="width:90vw; height:90vh; flex-direction:row;">
+            <div style="flex:7; background:#525659; padding:20px; display:flex; justify-content:center; align-items:center;">
+                <div style="background:white; width:100%; height:100%; max-width:700px; display:flex; align-items:center; justify-content:center; color:#ccc;">
+                    [PDF Preview Render]
+                </div>
+            </div>
+            <div style="flex:3; background:#f9fafb; display:flex; flex-direction:column;">
+                <div style="padding:20px; font-weight:700; border-bottom:1px solid #e5e7eb;">Export Check</div>
+                <div style="padding:20px; flex:1;">
+                    <div style="font-size:0.75rem; font-weight:700; color:var(--status-weak); text-transform:uppercase; margin-bottom:10px;">⚠️ 1 Warning</div>
+                    <div style="background:white; padding:12px; border:1px solid #e5e7eb; border-radius:4px; margin-bottom:10px;">
+                        <div style="font-weight:600; color:var(--status-weak); font-size:0.9rem; margin-bottom:4px;">Unlinked Citation</div>
+                        <div style="font-size:0.8rem; color:#666;">"Exhibit ?" on page 1.</div>
+                    </div>
+                </div>
+                <div style="padding:20px; border-top:1px solid #e5e7eb; background:white;">
+                    <button class="btn-primary" style="width:100%; justify-content:center; margin-bottom:10px;">Download DOCX</button>
+                    <button class="btn-secondary" style="width:100%; justify-content:center;" onclick="toggleModal('modal-export')">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-new-template" class="modal-overlay">
+        <div class="modal-card" style="width:400px; padding:20px;">
+            <h3>New Template</h3>
+            <p style="font-size:0.85rem; color:#666; margin-bottom:20px;">Create a new template from scratch or based on an existing one.</p>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn-secondary" onclick="toggleModal('modal-new-template')">Cancel</button>
+                <button class="btn-primary" onclick="toggleModal('modal-new-template'); openTemplateBuilder();">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // State / Navigation Logic
+        let currentContext = 'global'; // 'global' or 'case'
+
+        function navigateTo(tabId) {
+            // Update Tab UI
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('nav-' + tabId).classList.add('active');
+
+            // View Routing
+            hideAllViews();
+            
+            if (tabId === 'templates') {
+                document.getElementById('view-templates').classList.add('active-view');
+            } else if (tabId === 'cases') {
+                document.getElementById('view-cases').classList.add('active-view');
+            } else if (tabId === 'vault') {
+                if(currentContext === 'case') {
+                    document.getElementById('view-vault').classList.add('active-view');
+                } else {
+                    alert('Open a case first to view its vault.');
+                    navigateTo('templates'); // Fallback
+                }
+            }
+        }
+
+        function hideAllViews() {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
+        }
+
+        // View Transition Triggers
+        function openTemplate(name) {
+            // Simulate entering a template context -> Shows Case List
+            navigateTo('cases');
+        }
+
+        function openTemplateBuilder() {
+            hideAllViews();
+            document.getElementById('view-template-builder').classList.add('active-view');
+        }
+
+        function openCase(name) {
+            // Enter Case Context
+            currentContext = 'case';
+            
+            // Enable Vault Tab
+            const vaultTab = document.getElementById('nav-vault');
+            vaultTab.style.opacity = '1';
+            vaultTab.style.cursor = 'pointer';
+
+            hideAllViews();
+            document.getElementById('view-case-editor').classList.add('active-view');
+        }
+
+        function openDraft(name) {
+            hideAllViews();
+            document.getElementById('view-draft').classList.add('active-view');
+        }
+
+        function toggleModal(id) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('open')) {
+                el.classList.remove('open');
+            } else {
+                el.classList.add('open');
+            }
+        }
+
+        function switchSidebarTab(tabName) {
+            // Visual toggle for draft editor sidebar
+            const tabs = document.querySelectorAll('.sb-tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            const contents = document.querySelectorAll('.sb-content');
+            contents.forEach(c => c.style.display = 'none');
+
+            if(tabName === 'map') {
+                tabs[1].classList.add('active');
+                document.getElementById('sb-map').style.display = 'block';
+            } else {
+                tabs[0].classList.add('active');
+                document.getElementById('sb-library').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

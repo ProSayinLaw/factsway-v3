@@ -1,0 +1,58 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.rtf
+Untitled*
+
+# Context holds (session-specific, not for repo)
+Context holds/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies (when implementation begins)
+node_modules/
+venv/
+__pycache__/
+*.pyc
+.Python
+
+# Build outputs (future)
+dist/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Generated files that should be rebuilt
+*.docx
+*.pdf
+reference.docx
+
+# Superseded handoff documents
+HANDOFF_SESSION_7.md
