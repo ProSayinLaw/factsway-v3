@@ -1,10 +1,41 @@
 # Runbook 8: Electron Renderer - Vue + Tiptap Frontend
 
-**Phase:** Integration (Critical Path)  
-**Estimated Time:** 12-16 hours  
-**Prerequisites:** Runbooks 1-7 complete (services + orchestrator)  
-**Depends On:** Runbook 0 Sections 1.7, 7, 12, 20, 22.2  
+**Phase:** Integration (Critical Path)
+**Estimated Time:** 27-33 hours
+**Prerequisites:** Runbooks 1-7 complete (services + orchestrator)
+**Depends On:** Runbook 0 Sections 1.7, 7, 12, 20, 22.2
 **Enables:** Runbooks 9-15 (UI integration, packaging, testing)
+
+**Breakdown:**
+- Vue 3 app setup + Vite config: 2 hours
+- 8 views from Design System: 4 hours
+  - TemplateView, CaseView, DraftView, EditorView
+  - EvidenceView, ExportView, SettingsView, HelpView
+- Tiptap editor integration: 3 hours
+- Custom Tiptap extensions (3): 8-12 hours
+  - CitationNode (3-4h)
+  - VariableNode (2-3h)
+  - CrossReferenceNode (3-5h)
+- Custom Footnote extension: 4-6 hours
+- IPC bridge implementation: 2 hours
+- Pinia state management: 2 hours
+- Transformation layer (Tiptap JSON ↔ LegalDocument): 3-4 hours
+- Feature Registry clerk definitions (8 clerks): 8 hours
+  - 1 hour per clerk × 8 clerks
+  - Facts Clerk already done in Runbook 1
+  - 7 remaining: Exhibits, Discovery, Caseblock, Signature, Editor, Communication, Analysis
+- Testing and integration: 2-3 hours
+
+**Why longer than original estimate:**
+- Original assumed community Tiptap extensions would work (they don't)
+- Custom extensions take longer than expected (8-12h not 3h)
+- Custom footnote extension needed (community package unmaintained)
+- Feature Registry documentation for all 8 clerks (8h)
+- This is realistic time for production-quality implementation
+
+**Original estimate (12-16h) was optimistic.** This is honest assessment.
+
+**This is "one-shot" development:** Invest proper time now, build it right once, no refactoring later.
 
 ---
 
@@ -1476,7 +1507,549 @@ const crossRefClass = computed(() => {
 
 ---
 
-### 4.7 Main Editor Composable
+### 4.7 Custom Footnote Node Extension
+
+**Why custom instead of community package?**
+
+The `tiptap-footnotes` package exists but is unmaintained (last update 2022). Building custom gives us:
+- ✅ Full control over behavior
+- ✅ Guaranteed DOCX export compatibility
+- ✅ No dependency on unmaintained package
+- ✅ Can customize for legal document needs
+- ✅ Tight integration with LegalDocument format
+
+**This is "one-shot" development:** 4-6 hours now prevents maintenance issues later.
+
+**File:** `desktop/renderer/src/extensions/nodes/FootnoteNode.ts`
+
+**Action:** CREATE
+
+**Content:**
+```typescript
+import { Node, mergeAttributes } from '@tiptap/core'
+import { VueNodeViewRenderer } from '@tiptap/vue-3'
+import FootnoteComponent from './FootnoteComponent.vue'
+
+export interface FootnoteOptions {
+  HTMLAttributes: Record<string, any>
+}
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    footnote: {
+      /**
+       * Insert a footnote at the current cursor position
+       */
+      insertFootnote: (text: string) => ReturnType
+      /**
+       * Update footnote text by ID
+       */
+      updateFootnote: (id: string, text: string) => ReturnType
+    }
+  }
+}
+
+export const FootnoteNode = Node.create<FootnoteOptions>({
+  name: 'footnote',
+
+  group: 'inline',
+  inline: true,
+  atom: true,  // Treat as single unit (can't put cursor inside marker)
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
+  },
+
+  addAttributes() {
+    return {
+      id: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-footnote-id'),
+        renderHTML: attributes => {
+          if (!attributes.id) {
+            return {}
+          }
+          return {
+            'data-footnote-id': attributes.id,
+          }
+        },
+      },
+      text: {
+        default: '',
+        parseHTML: element => element.getAttribute('data-footnote-text'),
+        renderHTML: attributes => {
+          if (!attributes.text) {
+            return {}
+          }
+          return {
+            'data-footnote-text': attributes.text,
+          }
+        },
+      },
+      number: {
+        default: 1,
+        parseHTML: element => parseInt(element.getAttribute('data-footnote-number') || '1'),
+        renderHTML: attributes => {
+          return {
+            'data-footnote-number': attributes.number,
+          }
+        },
+      },
+    }
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'footnote',
+      },
+      {
+        tag: 'sup[data-footnote-id]',
+      },
+    ]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['footnote', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)]
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(FootnoteComponent)
+  },
+
+  addCommands() {
+    return {
+      insertFootnote:
+        (text: string) =>
+        ({ commands, state }) => {
+          const id = `footnote_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+          // Get current footnote count for numbering
+          let footnoteCount = 0
+          state.doc.descendants((node) => {
+            if (node.type.name === 'footnote') {
+              footnoteCount++
+            }
+          })
+          const number = footnoteCount + 1
+
+          return commands.insertContent({
+            type: this.name,
+            attrs: { id, text, number },
+          })
+        },
+
+      updateFootnote:
+        (id: string, text: string) =>
+        ({ tr, state }) => {
+          let updated = false
+
+          state.doc.descendants((node, pos) => {
+            if (node.type.name === this.name && node.attrs.id === id) {
+              tr.setNodeMarkup(pos, undefined, { ...node.attrs, text })
+              updated = true
+            }
+          })
+
+          return updated
+        },
+    }
+  },
+})
+```
+
+---
+
+### 4.8 Footnote Node View Component
+
+**File:** `desktop/renderer/src/extensions/nodes/FootnoteComponent.vue`
+
+**Action:** CREATE
+
+**Content:**
+```vue
+<template>
+  <NodeViewWrapper as="span" class="footnote-marker">
+    <sup
+      class="footnote-number"
+      :data-footnote-id="node.attrs.id"
+      @click="showFootnote"
+      @mouseenter="showTooltip"
+      @mouseleave="hideTooltip"
+    >
+      {{ node.attrs.number }}
+    </sup>
+
+    <!-- Tooltip showing footnote text on hover -->
+    <Teleport to="body">
+      <div
+        v-if="tooltipVisible"
+        class="footnote-tooltip"
+        :style="tooltipStyle"
+      >
+        {{ node.attrs.text }}
+      </div>
+    </Teleport>
+  </NodeViewWrapper>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { NodeViewWrapper } from '@tiptap/vue-3'
+
+const props = defineProps({
+  node: {
+    type: Object,
+    required: true,
+  },
+  editor: {
+    type: Object,
+    required: true,
+  },
+})
+
+const tooltipVisible = ref(false)
+const tooltipPosition = ref({ x: 0, y: 0 })
+
+const tooltipStyle = computed(() => ({
+  left: `${tooltipPosition.value.x}px`,
+  top: `${tooltipPosition.value.y}px`,
+}))
+
+function showTooltip(event: MouseEvent) {
+  tooltipPosition.value = {
+    x: event.clientX,
+    y: event.clientY - 40, // Position above cursor
+  }
+  tooltipVisible.value = true
+}
+
+function hideTooltip() {
+  tooltipVisible.value = false
+}
+
+function showFootnote() {
+  // Emit event to show footnote in sidebar panel
+  props.editor.emit('show-footnote', props.node.attrs.id)
+}
+</script>
+
+<style scoped>
+.footnote-marker {
+  position: relative;
+}
+
+.footnote-number {
+  color: #2563eb;
+  cursor: pointer;
+  user-select: none;
+}
+
+.footnote-number:hover {
+  text-decoration: underline;
+}
+
+.footnote-tooltip {
+  position: fixed;
+  background: #1f2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  max-width: 300px;
+  z-index: 9999;
+  pointer-events: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+</style>
+```
+
+---
+
+### 4.9 Footnote Panel Component
+
+**File:** `desktop/renderer/src/components/FootnotePanel.vue`
+
+**Action:** CREATE
+
+**Purpose:** Sidebar panel showing all footnotes with edit capability
+
+**Content:**
+```vue
+<template>
+  <div class="footnote-panel">
+    <h3>Footnotes</h3>
+
+    <div v-if="footnotes.length === 0" class="empty-state">
+      No footnotes in document
+    </div>
+
+    <div v-else class="footnote-list">
+      <div
+        v-for="footnote in footnotes"
+        :key="footnote.id"
+        class="footnote-item"
+        :class="{ active: activeFootnoteId === footnote.id }"
+      >
+        <div class="footnote-header">
+          <span class="footnote-number">{{ footnote.number }}</span>
+          <button
+            class="delete-btn"
+            @click="deleteFootnote(footnote.id)"
+            title="Delete footnote"
+          >
+            ×
+          </button>
+        </div>
+        <textarea
+          v-model="footnote.text"
+          @input="updateFootnote(footnote.id, footnote.text)"
+          class="footnote-text"
+          rows="3"
+        />
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { Editor } from '@tiptap/vue-3'
+
+const props = defineProps<{
+  editor: Editor
+}>()
+
+const activeFootnoteId = ref<string | null>(null)
+
+const footnotes = computed(() => {
+  const notes: Array<{ id: string; number: number; text: string }> = []
+
+  props.editor.state.doc.descendants((node) => {
+    if (node.type.name === 'footnote') {
+      notes.push({
+        id: node.attrs.id,
+        number: node.attrs.number,
+        text: node.attrs.text,
+      })
+    }
+  })
+
+  return notes.sort((a, b) => a.number - b.number)
+})
+
+function updateFootnote(id: string, text: string) {
+  props.editor.commands.updateFootnote(id, text)
+}
+
+function deleteFootnote(id: string) {
+  const { state, view } = props.editor
+  const { tr } = state
+
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === 'footnote' && node.attrs.id === id) {
+      tr.delete(pos, pos + node.nodeSize)
+    }
+  })
+
+  view.dispatch(tr)
+}
+
+// Listen for show-footnote events from marker clicks
+props.editor.on('show-footnote', (id: string) => {
+  activeFootnoteId.value = id
+  // Scroll to footnote in panel
+  setTimeout(() => {
+    const element = document.querySelector(`[data-footnote-id="${id}"]`)
+    element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, 100)
+})
+</script>
+
+<style scoped>
+.footnote-panel {
+  padding: 16px;
+  background: #f9fafb;
+  border-left: 1px solid #e5e7eb;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.footnote-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footnote-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.footnote-item.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.footnote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.footnote-number {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  line-height: 1;
+}
+
+.delete-btn:hover {
+  color: #ef4444;
+}
+
+.footnote-text {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.empty-state {
+  text-align: center;
+  color: #9ca3af;
+  padding: 32px;
+}
+</style>
+```
+
+---
+
+### 4.10 Integration with Editor
+
+The footnote extension integrates with the main editor in EditorView:
+
+**Example usage in EditorView.vue:**
+```vue
+<template>
+  <div class="editor-container">
+    <div class="editor-main">
+      <EditorContent :editor="editor" />
+    </div>
+
+    <!-- Footnote panel on the right -->
+    <div class="editor-sidebar">
+      <FootnotePanel :editor="editor" />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useEditor, EditorContent } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+import { FootnoteNode } from '@/extensions/nodes/FootnoteNode'
+import FootnotePanel from '@/components/FootnotePanel.vue'
+
+const editor = useEditor({
+  extensions: [
+    StarterKit,
+    FootnoteNode,
+    // ... other extensions
+  ],
+  content: '<p>Document content</p>',
+})
+</script>
+```
+
+**Export to DOCX (Runbook 5 integration):**
+
+When exporting to DOCX, transform footnote nodes to Word footnotes:
+
+```python
+# services/export-service/app/exporters/docx_exporter.py
+
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+
+def add_footnote_to_paragraph(paragraph, footnote_text: str, footnote_number: int):
+    """Add Word footnote to paragraph"""
+
+    # Create footnote reference (superscript number)
+    run = paragraph.add_run()
+    run.font.superscript = True
+    run.text = str(footnote_number)
+
+    # Create footnote element
+    footnote_ref = OxmlElement('w:footnoteReference')
+    footnote_ref.set(qn('w:id'), str(footnote_number))
+    run._element.append(footnote_ref)
+
+    # Add footnote text to document footnotes
+    # (Word manages footnotes separately)
+    document.footnotes.add_footnote(footnote_text, footnote_number)
+```
+
+**Import from DOCX (Runbook 4 integration):**
+
+When importing from DOCX, parse Word footnotes to footnote nodes:
+
+```python
+# services/ingestion-service/app/parsers/docx_parser.py
+
+def extract_footnotes(paragraph) -> list[dict]:
+    """Extract footnotes from Word paragraph"""
+    footnotes = []
+
+    for run in paragraph.runs:
+        # Check if run contains footnote reference
+        footnote_refs = run._element.findall('.//w:footnoteReference', namespaces)
+
+        for ref in footnote_refs:
+            footnote_id = ref.get(qn('w:id'))
+            footnote_text = get_footnote_text(document, footnote_id)
+
+            footnotes.append({
+                'id': f'footnote_{footnote_id}',
+                'number': len(footnotes) + 1,
+                'text': footnote_text
+            })
+
+    return footnotes
+```
+
+**Testing checklist:**
+- [ ] Insert footnote (marker appears with number)
+- [ ] Hover over marker (tooltip shows footnote text)
+- [ ] Click marker (scrolls to footnote in sidebar)
+- [ ] Edit footnote text in sidebar (marker updates)
+- [ ] Delete footnote (marker removed)
+- [ ] Multiple footnotes (numbered correctly)
+- [ ] Export to DOCX (becomes Word footnotes)
+- [ ] Import from DOCX (Word footnotes become nodes)
+
+**Time:** 4-6 hours (node + component + panel + export/import + testing)
+
+---
+
+### 4.11 Main Editor Composable
 
 **File:** `desktop/renderer/src/composables/useEditor.ts`
 
@@ -2809,6 +3382,292 @@ function handleCreateCase() {
 - [ ] Dist folder contains compiled files
 - [ ] Electron can load production build
 - [ ] No console errors in production
+
+---
+
+## Task 9: Document Clerks in Feature Registry
+
+### Why Document in Feature Registry?
+
+As you build each of the 8 clerk Vue components, you must also document them in the Feature Registry. This serves multiple purposes:
+
+1. **LLM workspace configuration** - LLM knows what each clerk can do and how to configure it
+2. **User help system** - Users can ask "what can X clerk do?" and get accurate answers
+3. **Privacy transparency** - Clear documentation of what data each clerk accesses
+4. **Testing** - Tests can be generated from clerk capabilities
+5. **Architecture discipline** - Forces you to clearly define each clerk's purpose
+
+**This is required, not optional.** The clerk cannot be used by the LLM without its definition.
+
+**Template:** `packages/shared-types/src/registry/clerks/facts-clerk.definition.ts` (created in Runbook 1)
+
+---
+
+### 9.1 Clerks to Document
+
+As you implement each clerk component, create its Feature Registry definition:
+
+1. ✅ **FactsClerk.vue** → Already done in Runbook 1
+2. ⚠️ **ExhibitsClerk.vue** → Create `exhibits-clerk.definition.ts`
+3. ⚠️ **DiscoveryClerk.vue** → Create `discovery-clerk.definition.ts`
+4. ⚠️ **CaseblockClerk.vue** → Create `caseblock-clerk.definition.ts`
+5. ⚠️ **SignatureClerk.vue** → Create `signature-clerk.definition.ts`
+6. ⚠️ **EditorClerk.vue** → Create `editor-clerk.definition.ts`
+7. ⚠️ **CommunicationClerk.vue** → Create `communication-clerk.definition.ts`
+8. ⚠️ **AnalysisClerk.vue** → Create `analysis-clerk.definition.ts`
+
+---
+
+### 9.2 What to Document (Per Clerk)
+
+**For each clerk, create a complete ClerkDefinition:**
+
+```typescript
+// Example: exhibits-clerk.definition.ts
+
+import { ClerkDefinition } from '../clerk-definition.interface'
+
+export const EXHIBITS_CLERK: ClerkDefinition = {
+  // Identity
+  id: 'exhibits-clerk',
+  name: 'Exhibits Clerk',
+  description: 'Manages evidence attachments, extracts metadata, and links exhibits to facts and citations',
+  version: '1.0.0',
+
+  // Capabilities - List everything this clerk can do
+  capabilities: [
+    'Upload and organize exhibit files (PDF, images, documents)',
+    'Extract metadata from attachments (file size, type, creation date)',
+    'Link exhibits to facts and citations in motions',
+    'Generate exhibit lists for court filings',
+    'Preview attachments in-app',
+    'Manage exhibit numbering (Exhibit A, B, C, etc.)',
+    'Track exhibit sources and chain of custody',
+    'Export exhibits with motion as bundle'
+  ],
+
+  // Inputs - What data does this clerk need?
+  inputs: [
+    {
+      name: 'caseId',
+      type: 'ULID',
+      required: true,
+      description: 'Case identifier to associate exhibits with'
+    },
+    {
+      name: 'files',
+      type: 'File[]',
+      required: false,
+      description: 'Files to upload as exhibits'
+    }
+  ],
+
+  // Outputs - What data does this clerk produce?
+  outputs: [
+    {
+      name: 'exhibits',
+      type: 'Exhibit[]',
+      description: 'List of exhibits with metadata'
+    },
+    {
+      name: 'exhibitLinks',
+      type: 'ExhibitLink[]',
+      description: 'Links between exhibits and facts/citations'
+    }
+  ],
+
+  // Privacy - What data does this clerk access/store?
+  privacy: {
+    dataAccessed: [
+      'Uploaded exhibit files',
+      'Exhibit metadata',
+      'Case documents for linking'
+    ],
+    dataStored: [
+      'Exhibit files in local vault',
+      'Exhibit metadata (filename, size, type)',
+      'Links to facts and citations'
+    ],
+    externalAPIs: [
+      'None - all processing local'
+    ],
+    clerkGuardChannel: 'exhibits:manage'
+  },
+
+  // Constraints - What does this clerk require?
+  constraints: {
+    requiresCase: true,
+    requiresDocument: false,
+    requiresInternet: false,
+    minimumData: ['At least one case created']
+  },
+
+  // UI Modes - How can this clerk be displayed?
+  uiModes: {
+    'list': {
+      description: 'Shows all exhibits as searchable list with thumbnails',
+      layout: 'sidebar',
+      minSize: { width: 300, height: 400 },
+      preferredSize: { width: 400, height: 600 }
+    },
+    'upload': {
+      description: 'File upload interface with drag-and-drop',
+      layout: 'modal',
+      minSize: { width: 500, height: 400 }
+    },
+    'preview': {
+      description: 'Full preview of exhibit file',
+      layout: 'main',
+      minSize: { width: 600, height: 500 }
+    },
+    'linking': {
+      description: 'Interface for linking exhibits to facts',
+      layout: 'bottom',
+      minSize: { width: 800, height: 250 }
+    }
+  },
+  defaultMode: 'list',
+
+  // LLM Training Examples - How should LLM configure this clerk?
+  examples: [
+    {
+      userIntent: 'Upload exhibits for Cruz case',
+      configuration: {
+        mode: 'upload',
+        caseId: 'cruz-v-js7'
+      },
+      expectedOutcome: 'Opens upload modal for Cruz case'
+    },
+    {
+      userIntent: 'Show me all exhibits',
+      configuration: {
+        mode: 'list',
+        sortBy: 'name'
+      },
+      expectedOutcome: 'Opens exhibit list view'
+    },
+    {
+      userIntent: 'Link Exhibit A to this fact',
+      configuration: {
+        mode: 'linking',
+        selectedFact: 'fact_xyz'
+      },
+      expectedOutcome: 'Opens linking interface with fact pre-selected'
+    }
+  ],
+
+  // Metadata
+  tags: ['exhibits', 'evidence', 'attachments', 'files'],
+  category: 'document-processing'
+}
+```
+
+---
+
+### 9.3 Add to Registry
+
+After creating each clerk definition, add it to the registry:
+
+**File:** `packages/shared-types/src/registry/index.ts`
+
+```typescript
+import { FACTS_CLERK } from './clerks/facts-clerk.definition'
+import { EXHIBITS_CLERK } from './clerks/exhibits-clerk.definition'
+// ... import others as you create them
+
+export const CLERK_REGISTRY: ClerkRegistry = {
+  'facts-clerk': FACTS_CLERK,
+  'exhibits-clerk': EXHIBITS_CLERK,  // ← ADD
+  // ... add others
+}
+```
+
+---
+
+### 9.4 Benefits of Documenting As You Build
+
+**Immediate benefits:**
+- Forces clear thinking about clerk's purpose
+- Documents data contracts (inputs/outputs)
+- Clarifies privacy boundaries
+- Defines UI modes before building them
+
+**Future benefits:**
+- LLM can configure any documented clerk
+- Users can discover features via LLM
+- Tests can be generated from capabilities
+- API can be generated from definitions
+
+**This is "self-documenting architecture":**
+- Documentation IS the system
+- Can't skip it (LLM needs it)
+- Never goes stale (required for functionality)
+
+---
+
+### 9.5 Documentation Checklist (Per Clerk)
+
+When you finish implementing a clerk, verify its definition has:
+
+- [ ] Complete capabilities list (5+ items)
+- [ ] All inputs documented with types
+- [ ] All outputs documented with types
+- [ ] Privacy section filled out (data accessed/stored)
+- [ ] At least 3 UI modes defined
+- [ ] At least 3 LLM training examples
+- [ ] Links to ClerkGuard channel (if applicable)
+- [ ] Added to CLERK_REGISTRY in index.ts
+
+---
+
+### 9.6 Time Allocation
+
+**Per clerk:** ~1 hour documentation
+
+- Read Facts Clerk template: 5 min
+- List capabilities: 10 min
+- Define inputs/outputs: 10 min
+- Document privacy: 5 min
+- Define UI modes: 15 min
+- Create LLM examples: 10 min
+- Add to registry: 5 min
+
+**Total for 7 clerks:** ~7 hours (Facts already done in Runbook 1 = 8 total)
+
+**This time is included in the 27-33 hour estimate.**
+
+---
+
+### 9.7 Relationship to ClerkGuard (Backend)
+
+Your Feature Registry definitions should align with ClerkGuard channel definitions (Runbook 6).
+
+**Example alignment:**
+
+**Frontend (Feature Registry):**
+```typescript
+{
+  id: 'exhibits-clerk',
+  inputs: [{ name: 'caseId', type: 'ULID' }],
+  outputs: [{ name: 'exhibits', type: 'Exhibit[]' }],
+  privacy: { clerkGuardChannel: 'exhibits:manage' }
+}
+```
+
+**Backend (ClerkGuard):**
+```typescript
+{
+  channel: 'exhibits:manage',
+  resourceType: 'exhibit',
+  pathHierarchy: '/cases/:caseId/exhibits',
+  inputValidation: { caseId: 'ULID' },
+  outputSchema: { exhibits: 'Exhibit[]' }
+}
+```
+
+**Same data contract, different layers.** This ensures frontend and backend stay aligned.
+
+**Time:** 7-8 hours total (1 hour × 8 clerks, Facts already done in Runbook 1)
 
 ---
 

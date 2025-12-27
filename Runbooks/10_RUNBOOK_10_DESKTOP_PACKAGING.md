@@ -1,10 +1,29 @@
 # Runbook 10: Desktop Packaging - Electron Builder & Distribution
 
-**Phase:** Integration (Critical Path)  
-**Estimated Time:** 10-14 hours  
-**Prerequisites:** Runbooks 1-9 complete (entire desktop stack)  
-**Depends On:** Runbook 0 Sections 22.2, 17.5  
+**Phase:** Integration (Critical Path)
+**Estimated Time:** 16-22 hours
+**Prerequisites:** Runbooks 1-9 complete (entire desktop stack)
+**Depends On:** Runbook 0 Sections 22.2, 17.5
 **Enables:** Production deployment, user distribution, auto-updates
+
+**Breakdown:**
+- Electron builder initial setup: 2 hours
+- Python service bundling (PyInstaller): 8-10 hours
+  - Setup per service: 2-3 hours × 1 service (template)
+  - Additional services: 30 min × 6 services = 3 hours
+  - Testing and troubleshooting: 2-3 hours
+- Pandoc bundling (3 platforms): 2-3 hours
+- Code signing setup: 2 hours
+- Platform-specific testing: 2-3 hours
+- Distribution configuration (auto-updates): 2 hours
+
+**Why longer than original estimate:**
+- PyInstaller per-service approach (not single bundle) adds time but provides better architecture
+- Pandoc bundling for 3 platforms (Windows, macOS x64/arm64, Linux)
+- Removed LibreOffice dependency (saves time and 500MB)
+- Realistic time for production-quality packaging
+
+**This is "one-shot" development:** Package correctly from the start, no repacking later.
 
 ---
 
@@ -71,7 +90,74 @@ Create **distributable desktop installers** for FACTSWAY using electron-builder.
 
 ## Task 1: PyInstaller Configuration for Python Services
 
-### 1.1 Base PyInstaller Spec Template
+### Why Per-Service Executables?
+
+**Decision:** Each of 7 Python services becomes standalone executable
+
+**Alternatives considered:**
+- Single PyInstaller bundle (all services in one executable)
+- Embedded Python runtime (bundle Python + scripts)
+- Require user to install Python
+
+**Chosen approach: Per-service executables**
+
+**Why:**
+1. ✅ True microservices isolation (fault tolerance)
+2. ✅ Can restart individual services if they crash
+3. ✅ Easy debugging (test services independently)
+4. ✅ Modular updates (update one service without touching others)
+5. ✅ Matches architecture perfectly (microservices design)
+6. ✅ Proven approach (VS Code Python extension, many Electron apps)
+
+**Trade-off:**
+- Size: ~50-100MB per service × 7 = ~400MB total
+- Alternative (single bundle): ~150MB
+- **Difference: ~250MB** for better architecture
+
+**For desktop legal software targeting lawyers with modern computers: 400MB is acceptable.**
+
+**Total app size:** ~1GB (Electron 150MB + Pandoc 300MB + Python 400MB + Node 50MB + Assets 50MB)
+
+**Competitive legal software:** Adobe Acrobat (~600MB), Microsoft Word (~1.5GB), Westlaw Edge (~800MB)
+
+**Verdict:** Size cost is acceptable for architectural integrity.
+
+**Reference:** See `docs/PYTHON_UPGRADE_SUMMARY.md` and `Runbooks/Prep Plan/ARCHITECTURAL_DECISIONS_SUMMARY.md`
+
+---
+
+### Services to Bundle
+
+**7 Python microservices:**
+
+1. **ingestion-service** (port 3002) - DOCX parsing, sentence splitting, LegalDocument creation
+2. **export-service** (port 3003) - LegalDocument → DOCX/PDF export
+3. **caseblock-service** (port 3004) - Case caption management
+4. **signature-service** (port 3005) - Attorney signature blocks
+5. **facts-service** (port 3006) - Fact extraction, contradiction detection
+6. **exhibits-service** (port 3007) - Evidence attachment management
+7. **caselaw-service** (port 3008) - Legal citation parsing
+
+**Each becomes:** Standalone executable (~50-100MB)
+
+---
+
+### 1.1 Install PyInstaller
+
+**Python 3.11.7 required** (see `docs/PYTHON_UPGRADE_SUMMARY.md`)
+
+```bash
+# Install globally
+pip install pyinstaller --break-system-packages
+
+# Verify installation
+pyinstaller --version
+# Should show: 6.x.x
+```
+
+---
+
+### 1.2 Base PyInstaller Spec Template
 
 **File:** `scripts/packaging/pyinstaller-template.spec`
 

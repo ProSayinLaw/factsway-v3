@@ -1,10 +1,18 @@
 # Runbook 1: Reference Document - LegalDocument Types & Schema
 
-**Phase:** Foundation (Critical Path)  
-**Estimated Time:** 4-6 hours  
-**Prerequisites:** None (First runbook)  
-**Depends On:** Runbook 0 Section 4 (Data Model)  
+**Phase:** Foundation (Critical Path)
+**Estimated Time:** 8-9 hours
+**Prerequisites:** None (First runbook)
+**Depends On:** Runbook 0 Section 4 (Data Model)
 **Enables:** Runbooks 2-15 (all subsequent work)
+
+**Breakdown:**
+- Monorepo setup (pnpm): 1 hour
+- JSON Schema creation: 2 hours
+- Type generation setup: 1 hour
+- Feature Registry infrastructure: 3 hours
+- Facts Clerk definition: 1 hour
+- Testing & verification: 1 hour
 
 ---
 
@@ -54,6 +62,132 @@ Create the **canonical LegalDocument TypeScript types and JSON schema** that ser
 - ✅ JSON schema for runtime validation
 - ✅ Type guards and validators
 - ✅ Test suite with fixtures
+
+---
+
+## Task 0: Setup Monorepo with pnpm Workspaces
+
+### Why pnpm?
+
+FACTSWAY uses a monorepo structure with:
+- 8 microservices (`services/*`)
+- 1 desktop app (`apps/desktop`)
+- Shared packages (`packages/shared-types`)
+
+**pnpm benefits:**
+- Fast installs (efficient disk usage via content-addressable store)
+- Workspace protocol support (`workspace:*` dependencies)
+- Industry standard for monorepos
+- Better than npm workspaces (faster) or Lerna (simpler)
+
+**Decision:** Use pnpm workspaces (see `Runbooks/Prep Plan/ARCHITECTURAL_DECISIONS_SUMMARY.md`)
+
+---
+
+### 0.1 Install pnpm
+
+```bash
+# Install globally
+npm install -g pnpm
+
+# Verify installation
+pnpm --version
+# Should show: 8.x.x or 9.x.x
+```
+
+---
+
+### 0.2 Create Workspace Configuration
+
+**File:** `pnpm-workspace.yaml` (repository root)
+
+**Action:** CREATE
+
+```yaml
+packages:
+  - 'services/*'
+  - 'apps/*'
+  - 'packages/*'
+```
+
+This tells pnpm where to find workspace packages.
+
+---
+
+### 0.3 Update Root package.json
+
+**File:** `package.json` (repository root)
+
+**Action:** CREATE or UPDATE
+
+```json
+{
+  "name": "factsway-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FACTSWAY legal document platform - monorepo root",
+  "workspaces": [
+    "services/*",
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:all": "pnpm -r build",
+    "clean": "pnpm -r clean",
+    "test:all": "pnpm -r test"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
+```
+
+---
+
+### 0.4 Install Dependencies
+
+```bash
+# From repository root
+pnpm install
+
+# This will:
+# 1. Read pnpm-workspace.yaml
+# 2. Link all workspace packages
+# 3. Install dependencies efficiently
+```
+
+---
+
+### 0.5 Using Workspace Dependencies
+
+In any package, reference other workspace packages:
+
+```json
+{
+  "name": "@factsway/records-service",
+  "dependencies": {
+    "@factsway/shared-types": "workspace:*"
+  }
+}
+```
+
+The `workspace:*` protocol means "use the local package from this monorepo."
+
+---
+
+### 0.6 Verify Workspace Setup
+
+```bash
+# List all workspace packages
+pnpm list -r --depth 0
+
+# Should show:
+# packages/shared-types
+# (other packages added later)
+```
+
+**Time:** 1 hour
 
 ---
 
@@ -183,7 +317,427 @@ npx tsc --noEmit
 
 ---
 
+## Task 1.5: JSON Schema - Single Source of Truth
+
+### Why JSON Schema?
+
+**Problem:** LegalDocument must exist in both TypeScript (frontend, records-service) and Python (7 backend services). Without a single source, these WILL drift.
+
+**Solution:** JSON Schema generates both automatically. Impossible to drift.
+
+**Benefits:**
+- ✅ Single source of truth
+- ✅ Automated generation (no manual sync)
+- ✅ Type safety guaranteed
+- ✅ Can generate validators, docs, API specs
+- ✅ Language-agnostic (can add Go, Rust, etc. later)
+
+**Decision:** Use JSON Schema as source (see `Runbooks/Prep Plan/ARCHITECTURAL_DECISIONS_SUMMARY.md`)
+
+**Investment:** 3 hours now prevents infinite hours debugging schema drift later.
+
+This is "one-shot" development.
+
+---
+
+### 1.5.1 Create Schema Directory
+
+```bash
+cd packages/shared-types
+mkdir -p schemas
+```
+
+---
+
+### 1.5.2 Create LegalDocument Schema
+
+**File:** `packages/shared-types/schemas/legal-document.schema.json`
+
+**Note:** This schema was already created during prep plan Phase 1. Verify it exists.
+
+**Verification:**
+```bash
+cat schemas/legal-document.schema.json | head -20
+# Should show JSON Schema with "$schema": "http://json-schema.org/draft-07/schema#"
+```
+
+**Schema should include:**
+- DocumentMeta (documentId, caseId, type, timestamps)
+- DocumentBody (sections array)
+- Section (sectionId, type, level, content, children)
+- Content types (HeadingContent, ParagraphContent, ListContent)
+- Sentence (sentenceId, text, start, end)
+
+**If schema is missing**, create from template in `Runbooks/Prep Plan/CLAUDE_CODE_PROMPT_1_JSON_SCHEMA_REGISTRY.md`.
+
+---
+
+### 1.5.3 Create Generation Scripts
+
+**Note:** These scripts were already created during prep plan Phase 1. Verify they exist and work.
+
+**Script 1:** `packages/shared-types/scripts/generate-typescript.sh`
+
+Uses `quicktype` to generate TypeScript types from JSON Schema.
+
+**Script 2:** `packages/shared-types/scripts/generate-python.sh`
+
+Uses `datamodel-code-generator` to generate Python Pydantic models from JSON Schema.
+
+**Note:** This script already updated with Pydantic v2 compatibility flag (see `docs/PYTHON_UPGRADE_SUMMARY.md`).
+
+**Script 3:** `packages/shared-types/scripts/generate-all.sh`
+
+Runs both generation scripts.
+
+**Verify scripts exist and are executable:**
+```bash
+ls -la scripts/
+# Should show: generate-typescript.sh, generate-python.sh, generate-all.sh (all executable)
+```
+
+**If scripts are missing**, create from templates in `Runbooks/Prep Plan/CLAUDE_CODE_PROMPT_1_JSON_SCHEMA_REGISTRY.md`.
+
+---
+
+### 1.5.4 Install Generation Tools
+
+```bash
+# TypeScript generator
+npm install -g quicktype
+
+# Python generator (Python 3.11+ required - see docs/PYTHON_UPGRADE_SUMMARY.md)
+pip install datamodel-code-generator --break-system-packages
+```
+
+---
+
+### 1.5.5 Generate Types
+
+```bash
+cd packages/shared-types
+
+# Generate both TypeScript and Python
+./scripts/generate-all.sh
+
+# Verify outputs created
+ls -la src/legal-document.types.ts     # TypeScript types
+ls -la python/legal_document.py         # Python Pydantic models
+```
+
+---
+
+### 1.5.6 Verify TypeScript Types
+
+```bash
+# Install TypeScript if not present
+npm install
+
+# Compile to verify types are valid
+npm run build
+
+# Should compile without errors
+```
+
+---
+
+### 1.5.7 Verify Python Models
+
+```bash
+# Test import (Python 3.11.7 required)
+python3 -c "from python.legal_document import LegalDocument; print('✓ Python models work')"
+
+# Should print: ✓ Python models work
+```
+
+**Note:** Python 3.11.7 was installed via pyenv in prep phase (see `docs/PYTHON_UPGRADE_SUMMARY.md`).
+
+---
+
+### 1.5.8 Update package.json Scripts
+
+**File:** `packages/shared-types/package.json`
+
+**Action:** VERIFY these scripts exist (add if missing)
+
+```json
+{
+  "scripts": {
+    "generate:types": "./scripts/generate-typescript.sh",
+    "generate:python": "./scripts/generate-python.sh",
+    "generate:all": "./scripts/generate-all.sh",
+    "build": "tsc",
+    "test": "jest"
+  }
+}
+```
+
+---
+
+### 1.5.9 Usage in Other Packages
+
+**TypeScript (records-service, desktop app):**
+```typescript
+import { LegalDocument, DocumentMeta, Section } from '@factsway/shared-types'
+
+const doc: LegalDocument = {
+  meta: { /* ... */ },
+  body: { /* ... */ }
+}
+```
+
+**Python (ingestion-service, export-service, etc.):**
+```python
+from shared_types.python.legal_document import LegalDocument, DocumentMeta
+
+doc = LegalDocument(
+    meta=DocumentMeta(...),
+    body=DocumentBody(...)
+)
+```
+
+---
+
+### 1.5.10 Updating the Schema
+
+**When you need to change LegalDocument structure:**
+
+1. Edit `schemas/legal-document.schema.json`
+2. Run `npm run generate:all`
+3. Both TypeScript and Python types update automatically
+4. Commit schema + generated files together
+
+**This ensures types never drift.**
+
+**Time:** 3 hours (if creating from scratch; 30 min if verifying existing from prep phase)
+
+---
+
+## Task 1.6: Feature Registry Infrastructure
+
+### Why Feature Registry?
+
+**Purpose:** Document all 8 clerk components in structured format for:
+
+1. **LLM workspace configuration** - LLM knows what features exist and how to configure UI
+2. **User documentation** - Automatic feature discovery ("What can Facts Clerk do?")
+3. **Privacy transparency** - Clear data access documentation
+4. **Testing framework** - Tests generated from capability definitions
+5. **Future API specification** - Auto-generate OpenAPI from definitions
+
+**Key Insight:** This is the frontend complement to ClerkGuard (backend):
+- ClerkGuard enforces backend security via 96 channel definitions
+- Feature Registry enforces frontend documentation via 8 clerk definitions
+
+**Same pattern, different layer.** Both prevent drift, both enforce discipline.
+
+**Decision:** Build Feature Registry (see `Runbooks/Prep Plan/ARCHITECTURAL_DECISIONS_SUMMARY.md`)
+
+---
+
+### 1.6.1 Create Registry Directory
+
+```bash
+cd packages/shared-types
+mkdir -p src/registry/clerks
+```
+
+---
+
+### 1.6.2 Create ClerkDefinition Interface
+
+**File:** `packages/shared-types/src/registry/clerk-definition.interface.ts`
+
+**Note:** This file was already created during prep plan Phase 1. Verify it exists.
+
+**Interface should define:**
+- ClerkInput (name, type, required, description, validation)
+- ClerkOutput (name, type, description)
+- UIMode (description, layout, minSize, preferredSize)
+- ClerkDefinition (complete clerk specification)
+- ClerkRegistry (map of all clerks)
+
+**Verify file exists:**
+```bash
+cat src/registry/clerk-definition.interface.ts | head -20
+# Should show TypeScript interface definitions
+```
+
+**Key sections:**
+- `ClerkInput` - What data clerk needs
+- `ClerkOutput` - What data clerk produces
+- `UIMode` - How to display clerk (sidebar/main/modal/bottom)
+- `ClerkDefinition` - Complete clerk specification with:
+  - id, name, description, version
+  - capabilities (what it can do)
+  - inputs, outputs (data contract)
+  - privacy (data accessed, stored, external APIs)
+  - constraints (requires case/document/internet)
+  - uiModes (how to display)
+  - examples (for LLM training)
+
+**If interface is missing**, create from template in `Runbooks/Prep Plan/CLAUDE_CODE_PROMPT_1_JSON_SCHEMA_REGISTRY.md`.
+
+---
+
+### 1.6.3 Create Facts Clerk Definition (Template)
+
+**File:** `packages/shared-types/src/registry/clerks/facts-clerk.definition.ts`
+
+**Note:** This file was already created during prep plan Phase 1. Verify it's complete.
+
+**This serves as the TEMPLATE for documenting the other 7 clerks in Runbook 8.**
+
+**Verify file exists and is comprehensive:**
+```bash
+cat src/registry/clerks/facts-clerk.definition.ts | head -50
+# Should show complete Facts Clerk definition
+```
+
+**Key sections to verify:**
+- ✅ Complete capabilities list (8+ items)
+- ✅ Inputs defined (caseId, documentId, etc.)
+- ✅ Outputs defined (facts, contradictions, etc.)
+- ✅ Privacy section (what data accessed/stored)
+- ✅ Multiple UI modes (list, contradictions, timeline, etc.)
+- ✅ LLM training examples (5+ examples)
+- ✅ Links to ClerkGuard channel (facts:extract)
+
+This is the gold standard. All other clerk definitions will follow this pattern.
+
+**If definition is missing**, create from template in `Runbooks/Prep Plan/CLAUDE_CODE_PROMPT_1_JSON_SCHEMA_REGISTRY.md`.
+
+---
+
+### 1.6.4 Create Registry Exports
+
+**File:** `packages/shared-types/src/registry/index.ts`
+
+**Note:** This file was already created during prep plan Phase 1. Verify it's correct.
+
+**Should export:**
+- All types from clerk-definition.interface.ts
+- CLERK_REGISTRY object (currently only has facts-clerk)
+- Helper functions:
+  - `getClerkCapabilities()` - For LLM system prompt
+  - `findClerkByIntent()` - Match user intent to clerk
+  - `getPrivacyReport()` - Answer "what data do you access?"
+  - `getClerkById()` - Lookup by ID
+  - `getAllClerkIds()` - List all clerks
+
+**Verify file exists:**
+```bash
+cat src/registry/index.ts | grep "export"
+# Should show multiple exports
+```
+
+**If registry is missing**, create from template in `Runbooks/Prep Plan/CLAUDE_CODE_PROMPT_1_JSON_SCHEMA_REGISTRY.md`.
+
+---
+
+### 1.6.5 Add Registry to Package Exports
+
+**File:** `packages/shared-types/package.json`
+
+**Action:** VERIFY the package exports both types and registry
+
+```json
+{
+  "name": "@factsway/shared-types",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./registry": "./dist/registry/index.js"
+  }
+}
+```
+
+---
+
+### 1.6.6 Usage Examples
+
+**In Runbook 8 (when building clerks):**
+
+```typescript
+// When building ExhibitsClerk.vue, also create:
+// src/registry/clerks/exhibits-clerk.definition.ts
+
+import { ClerkDefinition } from '../clerk-definition.interface'
+
+export const EXHIBITS_CLERK: ClerkDefinition = {
+  id: 'exhibits-clerk',
+  name: 'Exhibits Clerk',
+  description: 'Manages evidence attachments...',
+  capabilities: [
+    'Upload and organize exhibit files',
+    'Extract metadata from attachments',
+    // ... more capabilities
+  ],
+  // ... complete definition following Facts Clerk template
+}
+```
+
+**Then add to registry:**
+```typescript
+// src/registry/index.ts
+import { EXHIBITS_CLERK } from './clerks/exhibits-clerk.definition'
+
+export const CLERK_REGISTRY: ClerkRegistry = {
+  'facts-clerk': FACTS_CLERK,
+  'exhibits-clerk': EXHIBITS_CLERK,  // ← ADD NEW CLERK
+  // ... others added as you build them
+}
+```
+
+---
+
+### 1.6.7 Relationship to ClerkGuard
+
+**Backend (ClerkGuard - Runbook 6):**
+```typescript
+{
+  channel: 'facts:extract',
+  resourceType: 'fact',
+  pathHierarchy: '/cases/:caseId/facts',
+  inputValidation: { caseId: 'ULID', documentId: 'ULID' },
+  outputSchema: { facts: 'Fact[]' }
+}
+```
+
+**Frontend (Feature Registry - Runbook 1):**
+```typescript
+{
+  id: 'facts-clerk',
+  inputs: [
+    { name: 'caseId', type: 'ULID' },
+    { name: 'documentId', type: 'ULID' }
+  ],
+  outputs: [{ name: 'facts', type: 'Fact[]' }],
+  privacy: { clerkGuardChannel: 'facts:extract' }
+}
+```
+
+**They mirror each other.** Same data contract, different enforcement layers.
+
+**Time:** 3 hours (if creating from scratch; 30 min if verifying existing from prep phase)
+
+---
+
 ## Task 2: Create Core Type Definitions
+
+**⚠️ IMPORTANT NOTE:** With JSON Schema (Task 1.5), TypeScript types are now GENERATED, not manually written.
+
+This task becomes:
+1. Verify generated types exist (from Task 1.5.5)
+2. Add any additional utility types not in schema
+3. Ensure everything compiles
+
+**Time reduced from 2 hours to 30 minutes** (verification only).
+
+If you did NOT complete Task 1.5 (JSON Schema), you'll need to manually write all types below, which will take the original 2 hours.
+
+---
 
 ### 2.1 Create Base Types
 
