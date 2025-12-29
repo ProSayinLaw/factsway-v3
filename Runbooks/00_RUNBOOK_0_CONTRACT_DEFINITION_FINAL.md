@@ -88,11 +88,20 @@ A browser-based legal document drafting platform that:
 
 ### 1.2 Core Architecture
 
-FACTSWAY is built as a microservices architecture with 8 independent backend services and a React frontend.
+FACTSWAY is built as a microservices architecture with 8 independent backend services and a Vue 3 frontend.
+
+**Framework Choice: Vue 3**
+- Better for single developer (less boilerplate)
+- Perfect for LLM-driven dynamic UI (`<component :is>` directive)
+- Official Tiptap support (`@tiptap/vue-3`)
+- Built-in transitions for workspace reconfiguration
+- Pinia state management (simpler than Redux)
+
+See [ARCHITECTURAL_DECISIONS_SUMMARY.md](../Runbooks/Prep Plan/ARCHITECTURAL_DECISIONS_SUMMARY.md) for full rationale.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      FRONTEND (React + Vite)                        │
+│                      FRONTEND (Vue 3 + Vite)                        │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐ │
 │  │  Template   │  │    Case     │  │   Draft     │  │  Evidence  │ │
 │  │   Builder   │  │   Manager   │  │   Editor    │  │   Panel    │ │
@@ -140,7 +149,7 @@ FACTSWAY is built as a microservices architecture with 8 independent backend ser
 1. **Service Independence:** Each service can be developed, tested, and deployed independently
 2. **Schema Contract:** All services communicate via LegalDocument schema (Section 4)
 3. **Deployment Flexibility:** Services run as processes (Desktop) OR containers (Cloud)
-4. **Frontend Transformation:** React app transforms Tiptap JSON ↔ LegalDocument
+4. **Frontend Transformation:** Vue 3 app transforms Tiptap JSON ↔ LegalDocument
 5. **No Backend State:** Services are stateless (Records Service handles persistence)
 
 ### 1.3 Data Flow Summary
@@ -162,7 +171,14 @@ User selects template → Creates new case (enters data) → Creates new draft
 ```
 Draft + Case + Template → Pandoc converts HTML body to DOCX
 → OOXML injector merges case block + body + signature → Final .docx
-→ (Optional) LibreOffice converts to PDF for preview
+→ WYSIWYG PDF preview via Electron printToPDF API
+
+**Decision:** Removed LibreOffice dependency
+- LibreOffice: ~500MB bundle size
+- Electron printToPDF: Built-in, no extra size
+- Result: Same WYSIWYG, saves 500MB
+
+See Export Service (Runbook 5) for Electron printToPDF implementation
 ```
 
 ### 1.4 Runbook Execution Plan

@@ -1,0 +1,80 @@
+/* src/assets/base.css */
+:root {
+    /* === VISUAL IDENTITY (00_UI_DESIGN_PRINCIPLES.md) === */
+
+    /* Color Palette */
+    --bg-desk: #f0f0eb;
+    /* Wooden desk background */
+    --bg-paper: #ffffff;
+    /* Document surfaces */
+    --bg-header: #292524;
+    /* Dark credenza/header */
+
+    --accent-orange: #c2410c;
+    /* Primary actions, active states */
+    --accent-gold: #b45309;
+    /* AI insights */
+
+    --text-ink: #1f2937;
+    /* Primary text */
+    --text-muted: #6b7280;
+    /* Secondary text */
+
+    --border-subtle: #d6d3d1;
+    /* Dividers */
+
+    /* Note Colors */
+    --note-ai-bg: #fffbeb;
+    --note-ai-border: #f59e0b;
+    --note-user-bg: #eff6ff;
+    --note-user-border: #3b82f6;
+
+    /* Typography */
+    --font-head: 'Source Serif Pro', serif;
+    --font-ui: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-legal: 'Times New Roman', serif;
+
+    /* Dimensions */
+    --header-height: 48px;
+    --sidebar-width-collapsed: 50px;
+    /* Width of icons only */
+    --sidebar-width-expanded: 340px;
+    --right-panel-width: 320px;
+
+    /* Page geometry (Letter size - FIXED, never changes) */
+    --page-width: 8.5in;
+    --page-height: 11in;
+    --page-margin-top: 1in;
+    --page-margin-bottom: 1in;
+    --page-margin-left: 1in;
+    --page-margin-right: 1in;
+
+    /* Redline colors */
+    --redline-delete: #ef4444;
+    --redline-insert: #22c55e;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-desk);
+    color: var(--text-ink);
+    font-family: var(--font-ui);
+    overflow: hidden;
+    /* App-like feel */
+}
+
+/* Scrollbar styling for panels */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 3px;
+}

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factsway - Motion Drafting</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+Pro:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        :root {
+            --bg-app: #f0f0eb;
+            --bg-panel: #ffffff;
+            --accent-primary: #c2410c; 
+            --accent-secondary: #4338ca; 
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #d6d3d1;
+            
+            /* Highlight Colors */
+            --link-bg: #eff6ff;
+            --link-border: #3b82f6;
+            --link-text: #1e3a8a;
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-app); color: var(--text-main);
+            font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* --- Tabs --- */
+        .binder-nav { background: #292524; padding: 10px 40px 0 40px; display: flex; gap: 6px; }
+        .tab {
+            background: #44403c; color: #a8a29e; padding: 8px 20px;
+            border-radius: 6px 6px 0 0; font-size: 0.8rem; cursor: pointer; border: 1px solid #44403c; border-bottom: none;
+        }
+        .tab.active {
+            background: var(--bg-app); color: var(--text-main); font-weight: 600;
+            padding-bottom: 12px; margin-bottom: -1px; z-index: 10;
+        }
+
+        /* --- Workspace --- */
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px 1fr 300px; 
+            height: 100%; overflow: hidden;
+        }
+
+        /* --- LEFT PANEL: Outline & Assistant --- */
+        .left-panel {
+            display: flex; flex-direction: column;
+            border-right: 1px solid var(--border); background: #e7e5e4;
+        }
+
+        /* Outline */
+        .structure-view {
+            flex: 1; overflow-y: auto; border-bottom: 2px solid var(--border);
+            display: flex; flex-direction: column; padding-bottom: 20px;
+        }
+        .panel-head {
+            padding: 12px 16px; background: #e7e5e4; font-family: 'Source Serif Pro'; font-weight: 700;
+            font-size: 0.9rem; border-bottom: 1px solid #d6d3d1; display: flex; justify-content: space-between; align-items: center;
+        }
+        
+        .tree-node {
+            padding: 4px 12px; font-size: 0.8rem; display: flex; gap: 8px; align-items: center; cursor: pointer; color: var(--text-main); margin-bottom: 2px;
+        }
+        .tree-node:hover { background: rgba(255,255,255,0.5); }
+        .tree-node.active { background: white; font-weight: 600; border-left: 3px solid var(--accent-primary); }
+        
+        .indent-1 { font-weight: 700; margin-top: 8px; }
+        .indent-2 { margin-left: 16px; border-left: 1px solid #ccc; padding-left: 8px; }
+        .indent-3 { margin-left: 16px; border-left: 1px solid #ccc; padding-left: 8px; font-size: 0.75rem; color: #555; }
+
+        /* Assistant */
+        .assistant-panel { height: 40%; background: #fff; display: flex; flex-direction: column; }
+        .assistant-header {
+            background: var(--text-main); color: white; padding: 10px 16px;
+            font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;
+        }
+        .chat-area { flex: 1; padding: 12px; overflow-y: auto; font-size: 0.85rem; background: #f8fafc; }
+        .ai-msg { background: white; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; margin-bottom: 10px; line-height: 1.4; }
+        .ai-label { font-size: 0.65rem; color: var(--accent-secondary); font-weight: 700; margin-bottom: 4px; display: block; }
+        
+        .input-wrapper { padding: 12px; border-top: 1px solid #eee; position: relative; background: white; }
+        .ai-input {
+            width: 100%; box-sizing: border-box; padding: 10px; padding-right: 30px;
+            border: 2px solid #e2e8f0; border-radius: 6px; font-family: 'Inter'; font-size: 0.85rem;
+        }
+
+        /* --- CENTER EDITOR --- */
+        .editor-container {
+            background: var(--bg-app); padding: 40px; overflow-y: auto; display: flex; justify-content: center;
+        }
+        .paper {
+            background: white; width: 100%; max-width: 800px; min-height: 1400px;
+            padding: 70px 90px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            font-family: 'Times New Roman', Times, serif; color: black; font-size: 1.15rem; line-height: 2.0;
+        }
+
+        /* Legal Formatting */
+        .doc-header { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 30px; }
+        h2 { font-size: 1.15rem; font-weight: bold; margin: 20px 0; text-transform: uppercase; text-align: center; }
+        h3 { font-size: 1.15rem; font-weight: bold; margin: 15px 0; text-align: left; }
+        
+        p { margin-bottom: 24px; text-indent: 40px; text-align: justify; }
+        
+        .legal-list { margin-left: 40px; margin-bottom: 24px; }
+        .list-item { display: flex; margin-bottom: 12px; }
+        .list-num { width: 30px; flex-shrink: 0; font-weight: bold; }
+        
+        /* The Active Highlight */
+        .linked-sentence {
+            background-color: var(--link-bg);
+            border-bottom: 2px solid var(--link-border);
+            padding: 2px 0;
+            cursor: pointer;
+            position: relative;
+        }
+        .linked-sentence:hover { background-color: #dbeafe; }
+        
+        /* Badge on hover (simulation) */
+        .link-badge {
+            position: absolute; right: -120px; top: -5px;
+            background: var(--link-border); color: white;
+            font-family: 'Inter'; font-size: 0.6rem; font-weight: 700;
+            padding: 2px 6px; border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+
+        /* --- RIGHT PANEL: Assets --- */
+        .right-panel { background: #fff; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+        .asset-tabs { display: flex; border-bottom: 1px solid var(--border); background: #f3f4f6; }
+        .asset-tab { flex: 1; text-align: center; padding: 12px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); cursor: pointer; text-transform: uppercase; }
+        .asset-tab.active { background: white; color: var(--accent-primary); border-bottom: 2px solid var(--accent-primary); }
+        
+        .asset-list { flex: 1; overflow-y: auto; padding: 12px; }
+        
+        .context-header { font-size: 0.7rem; color: #999; margin: 10px 0 8px 0; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
+
+        .vault-item {
+            padding: 10px; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 8px;
+            display: flex; gap: 10px; cursor: grab; background: #fff; align-items: center;
+        }
+        .vault-item:hover { border-color: var(--accent-primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .v-icon { color: var(--text-muted); }
+        
+        /* Active Asset Highlight */
+        .vault-item.active { border-left: 3px solid var(--link-border); background: #f8fafc; border-color: var(--link-border); }
+
+    </style>
+</head>
+<body>
+
+    <nav class="binder-nav">
+        <div class="tab active">Drafting Clerk</div>
+        <div class="tab">CaseBlock</div>
+        <div class="tab">Vault</div>
+    </nav>
+
+    <div class="workspace">
+        
+        <aside class="left-panel">
+            <div class="structure-view">
+                <div class="panel-head">
+                    <span>Motion Outline</span>
+                    <i data-lucide="list-tree" size="14"></i>
+                </div>
+                <div style="padding: 10px;">
+                    <div class="tree-node indent-1"><i data-lucide="chevron-down" size="12"></i> I. INTRODUCTION</div>
+                    <div class="tree-node indent-1"><i data-lucide="chevron-down" size="12"></i> II. STATEMENT OF FACTS</div>
+                    <div class="tree-node indent-2"><i data-lucide="file-text" size="12"></i> Termination of Services</div>
+                    <div class="tree-node indent-2"><i data-lucide="file-text" size="12"></i> Plaintiff's Discovery Abuse</div>
+                    <div class="tree-node indent-2 active"><i data-lucide="file-text" size="12"></i> Material Evidence Concealed</div>
+                    <div class="tree-node indent-1"><i data-lucide="chevron-right" size="12"></i> III. KEY CASE LAW</div>
+                    <div class="tree-node indent-1"><i data-lucide="chevron-right" size="12"></i> IV. ARGUMENTS</div>
+                    <div class="tree-node indent-1"><i data-lucide="chevron-right" size="12"></i> V. PRAYER</div>
+                </div>
+            </div>
+
+            <div class="assistant-panel">
+                <div class="assistant-header">
+                    <i data-lucide="bot" size="14"></i>
+                    <span>DRAFTING CLERK ASSISTANT</span>
+                </div>
+                <div class="chat-area">
+                    <div class="ai-msg">
+                        <span class="ai-label">FACT CHECK</span>
+                        I've cross-referenced <strong>Paragraph 37</strong> with the Vault.
+                        <br><br>
+                        We have 3 email screenshots produced by the Plaintiff (Bates JS7-0045, JS7-0048) that explicitly show the "Reconciliation Tracker" Google Sheet.
+                        <br><br>
+                        Would you like to cite those specific Bates numbers?
+                        <div style="margin-top:8px; display:flex; gap:6px;">
+                            <button style="border:1px solid #ccc; background:white; padding:4px 8px; border-radius:3px; font-size:0.7rem; cursor:pointer;">Add Citation</button>
+                            <button style="border:1px solid #ccc; background:white; padding:4px 8px; border-radius:3px; font-size:0.7rem; cursor:pointer;">Ignore</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-wrapper">
+                    <input type="text" class="ai-input" placeholder="Type instructions (e.g. 'Formalize this paragraph')...">
+                </div>
+            </div>
+        </aside>
+
+
+        <main class="editor-container">
+            <div class="paper">
+                
+                <h3>34. Material Evidence JS7 Has Concealed and Pattern of Obstruction:</h3>
+
+                <p>
+                    Contracts, Power of Attorney Documents, and Contradictory Affidavits: JS7 has not produced contracts and affidavits that may disprove the alleged June 2020 agreement with WHC, including text messages where they admitted no contractual relationship existed.
+                </p>
+
+                <h3>35. Bank Records Related to JS7’s Financial Status:</h3>
+                
+                <div class="legal-list">
+                    <div class="list-item">
+                        <div class="list-num">a.</div>
+                        <div>
+                            JS7 has refused to provide bank records critical for determining their financial standing in June 2020, their role as a beneficiary under the alleged contract, and whether they or Mr. Santha improperly kept revenues meant for WHC.
+                        </div>
+                    </div>
+                </div>
+
+                <h3>36. Communications with Key Third Parties:</h3>
+                
+                <div class="legal-list">
+                    <div class="list-item">
+                        <div class="list-num">a.</div>
+                        <div>
+                            JS7 has withheld communications with Calista and Baddeliyange Santha, the actual owners of two properties, which are essential to understanding JS7's authority to have bound WHC into a contract to manage.
+                        </div>
+                    </div>
+                    <div class="list-item">
+                        <div class="list-num">b.</div>
+                        <div>
+                            They have also not disclosed communications with others including but not limited to, David Lane, Boyd Spaulding, Michael Gutierrez and Tanzine Ali, which Defendant believes contain evidence of JS7's misrepresentations.
+                        </div>
+                    </div>
+                </div>
+
+                <h3>37. Google Sheets and Financial Trackers:</h3>
+
+                <p class="linked-sentence">
+                    Emails and screenshots suggest the existence of Google Sheets with calculations and terms relevant to the alleged contract's financial details. The Plaintiff has even produced documents that demonstrate the existence of the records via screen shots in emails, yet JS7 has not provided a single document related to the actual records as requested.
+                    <span class="link-badge">LINKED: 2 ASSETS</span>
+                </p>
+
+                <p>
+                    Without these records, demonstrating that the Plaintiff’s claims on financial terms are unfounded is not possible. The withholding of these native files constitutes a direct violation of the Court's order on November 22nd.
+                </p>
+
+                <h3>38. Tax Documentation from Airbnb:</h3>
+
+                <p>
+                    JS7 has withheld Airbnb tax documents and internal financial records that would clarify tax responsibilities via 1099’s, contradicting their claims about ownership of the Airbnb account.
+                </p>
+
+            </div>
+        </main>
+
+
+        <aside class="right-panel">
+            <div class="asset-tabs">
+                <div class="asset-tab active">Relevant Assets</div>
+                <div class="asset-tab" style="color:#6b7280; border-bottom:1px solid #d6d3d1;">Search Vault</div>
+            </div>
+
+            <div class="asset-list">
+                
+                <div class="context-header">LINKED TO PARAGRAPH 37</div>
+
+                <div class="vault-item active">
+                    <i data-lucide="image" size="16" class="v-icon" style="color:#3b82f6;"></i>
+                    <div>
+                        <div style="font-weight:600; font-size:0.8rem; color:#1e3a8a;">Screenshot_Email_Tracker.png</div>
+                        <div style="font-size:0.7rem; color:#666;">Bates: JS7-0045</div>
+                    </div>
+                </div>
+
+                <div class="vault-item active">
+                    <i data-lucide="file-spreadsheet" size="16" class="v-icon" style="color:#3b82f6;"></i>
+                    <div>
+                        <div style="font-weight:600; font-size:0.8rem; color:#1e3a8a;">Missing_GoogleSheet_Ref.pdf</div>
+                        <div style="font-size:0.7rem; color:#666;">Exhibit J - Emails</div>
+                    </div>
+                </div>
+
+                <div class="context-header">SUGGESTED EVIDENCE</div>
+
+                <div class="vault-item">
+                    <i data-lucide="file-text" size="16" class="v-icon"></i>
+                    <div>
+                        <div style="font-weight:600; font-size:0.8rem;">Nov 22 Court Order.pdf</div>
+                        <div style="font-size:0.7rem; color:#666;">Relevant to withholding</div>
+                    </div>
+                    <i data-lucide="plus" size="14" style="color:#ccc; margin-left:auto;"></i>
+                </div>
+
+            </div>
+        </aside>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

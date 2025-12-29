@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes Clerk - Full Mockup</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+Pro:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        :root {
+            --bg-desk: #f0f0eb;
+            --bg-paper: #ffffff;
+            --bg-header: #292524;
+            --accent-primary: #c2410c;
+            --accent-gold: #b45309;
+            --accent-link: #3b82f6;
+            --accent-link-bg: #eff6ff;
+            --text-ink: #1f2937;
+            --text-muted: #6b7280;
+            --border-subtle: #d6d3d1;
+            --font-serif: 'Source Serif Pro', serif;
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            background: var(--bg-desk);
+            color: var(--text-ink);
+            font-family: var(--font-sans); 
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-nav { 
+            background: var(--bg-header); 
+            height: 50px; 
+            display: flex; 
+            align-items: center; 
+            padding: 0 20px; 
+            color: #f5f5f4; 
+            justify-content: space-between; 
+        }
+        .brand { 
+            font-family: var(--font-serif); 
+            font-weight: 700; 
+            letter-spacing: 0.05em; 
+            font-size: 1.1rem; 
+        }
+
+        .view-selector {
+            background: white;
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 16px 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .view-tab {
+            padding: 8px 16px;
+            border: 1px solid var(--border-subtle);
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+        .view-tab:hover {
+            border-color: #9ca3af;
+        }
+        .view-tab.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .mode-panel {
+            display: none;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .mode-panel.active {
+            display: block;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .panel-title {
+            font-family: var(--font-serif);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+        .btn-primary:hover {
+            background: #9a3412;
+        }
+
+        .note-card {
+            background: white;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        .note-card:hover {
+            border-color: #9ca3af;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transform: translateY(-1px);
+        }
+
+        .note-card.pinned {
+            border-left: 3px solid var(--accent-gold);
+            background: #fffbeb;
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .note-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+        }
+
+        .note-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .note-tag {
+            background: var(--accent-link-bg);
+            color: var(--accent-link);
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .note-tag.strategy {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .note-tag.research {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .note-tag.questions {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .note-text {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-ink);
+            margin-bottom: 10px;
+        }
+
+        .note-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding-top: 10px;
+            border-top: 1px solid #f3f4f6;
+        }
+
+        .note-actions {
+            display: flex;
+            gap: 12px;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .note-card:hover .note-actions {
+            opacity: 1;
+        }
+
+        .note-action {
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+        .note-action:hover {
+            color: var(--text-ink);
+        }
+
+        .quick-add {
+            background: white;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .quick-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-family: var(--font-sans);
+            resize: vertical;
+            min-height: 80px;
+            margin-bottom: 10px;
+        }
+
+        .quick-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tag-selector {
+            display: flex;
+            gap: 6px;
+        }
+
+        .tag-btn {
+            padding: 4px 10px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .tag-btn:hover {
+            border-color: #9ca3af;
+        }
+        .tag-btn.active {
+            background: var(--accent-link-bg);
+            color: var(--accent-link);
+            border-color: var(--accent-link);
+        }
+
+        .editor-panel {
+            background: white;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .editor-toolbar {
+            background: #f9fafb;
+            padding: 10px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .toolbar-btn {
+            border: none;
+            background: transparent;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-ink);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .toolbar-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .editor-area {
+            padding: 20px;
+            min-height: 300px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        .markdown-preview {
+            padding: 20px;
+            min-height: 300px;
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        .markdown-preview h2 {
+            font-family: var(--font-serif);
+            margin-top: 24px;
+            margin-bottom: 12px;
+        }
+
+        .markdown-preview code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+        }
+
+        .search-bar {
+            background: white;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 0.9rem;
+            font-family: var(--font-sans);
+        }
+
+        .btn-secondary {
+            background: white;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-ink);
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-secondary:hover {
+            background: #f3f4f6;
+        }
+
+        .pin-icon {
+            cursor: pointer;
+            opacity: 0.3;
+            transition: opacity 0.15s;
+        }
+        .pin-icon.pinned {
+            opacity: 1;
+            color: var(--accent-gold);
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="app-nav">
+        <div class="brand">FACTSWAY</div>
+        <div style="font-size: 0.8rem; opacity: 0.8;">Notes Clerk • JS7 v. Cruz</div>
+    </nav>
+
+    <div class="view-selector">
+        <button class="view-tab active" onclick="switchView('sidebar')">Sidebar Mode</button>
+        <button class="view-tab" onclick="switchView('split')">Split Mode</button>
+        <button class="view-tab" onclick="switchView('editor')">Full Editor</button>
+    </div>
+
+    <div class="content-area">
+        <!-- SIDEBAR MODE -->
+        <div class="mode-panel active" id="mode-sidebar">
+            <div style="max-width: 400px; margin: 0 auto;">
+                <h2 style="font-family: var(--font-serif); margin-bottom: 20px;">
+                    💡 Notes Clerk <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(Sidebar Mode)</span>
+                </h2>
+                
+                <div class="quick-add">
+                    <textarea class="quick-input" placeholder="Quick note... (Markdown supported)"></textarea>
+                    <div class="quick-footer">
+                        <div class="tag-selector">
+                            <button class="tag-btn">Strategy</button>
+                            <button class="tag-btn">Research</button>
+                            <button class="tag-btn">Questions</button>
+                        </div>
+                        <button class="btn-primary">
+                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                            Add
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="note-card pinned">
+                        <div class="note-header">
+                            <div style="flex: 1;">
+                                <div class="note-tags">
+                                    <span class="note-tag strategy">Strategy</span>
+                                </div>
+                                <div class="note-title">Discovery Plan</div>
+                            </div>
+                            <i data-lucide="pin" class="pin-icon pinned" style="width: 16px; height: 16px;"></i>
+                        </div>
+                        <div class="note-text">
+                            Focus on Tex. R. Civ. P. 215 sanctions for late responses. Need to establish pattern of delay.
+                        </div>
+                        <div class="note-footer">
+                            <span>2 hours ago</span>
+                        </div>
+                    </div>
+
+                    <div class="note-card">
+                        <div class="note-header">
+                            <div style="flex: 1;">
+                                <div class="note-tags">
+                                    <span class="note-tag research">Research</span>
+                                </div>
+                                <div class="note-title">Case Law on § 215</div>
+                            </div>
+                            <i data-lucide="pin" class="pin-icon" style="width: 16px; height: 16px;"></i>
+                        </div>
+                        <div class="note-text">
+                            <strong>Smith v. Jones</strong> holds that 30-day deadline is mandatory. Can cite for sanctions motion.
+                        </div>
+                        <div class="note-footer">
+                            <span>Yesterday</span>
+                        </div>
+                    </div>
+
+                    <div class="note-card">
+                        <div class="note-header">
+                            <div style="flex: 1;">
+                                <div class="note-tags">
+                                    <span class="note-tag questions">Questions</span>
+                                </div>
+                                <div class="note-title">Attorney Fees</div>
+                            </div>
+                            <i data-lucide="pin" class="pin-icon" style="width: 16px; height: 16px;"></i>
+                        </div>
+                        <div class="note-text">
+                            Can I recover fees under § 215? Need to research precedent.
+                        </div>
+                        <div class="note-footer">
+                            <span>2 days ago</span>
+                        </div>
+                    </div>
+                </div>
+
+                <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 20px;">
+                    This is how Notes Clerk appears in the sidebar (300-400px wide).<br>
+                    Quick capture with tagging and pinning.
+                </p>
+            </div>
+        </div>
+
+        <!-- SPLIT MODE -->
+        <div class="mode-panel" id="mode-split">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-title">💡 Notes Clerk</div>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Split view - Browse and edit notes</p>
+                </div>
+                <button class="btn-primary">
+                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                    New Note
+                </button>
+            </div>
+
+            <div class="search-bar">
+                <i data-lucide="search" style="width: 18px; height: 18px; color: var(--text-muted);"></i>
+                <input type="text" class="search-input" placeholder="Search notes...">
+                <div style="display: flex; gap: 6px;">
+                    <button class="tag-btn">Strategy</button>
+                    <button class="tag-btn">Research</button>
+                    <button class="tag-btn active">All</button>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                <div class="note-card pinned">
+                    <div class="note-header">
+                        <div style="flex: 1;">
+                            <div class="note-tags">
+                                <span class="note-tag strategy">Strategy</span>
+                            </div>
+                            <div class="note-title">Discovery Plan</div>
+                        </div>
+                        <i data-lucide="pin" class="pin-icon pinned" style="width: 16px; height: 16px;"></i>
+                    </div>
+                    <div class="note-text">
+                        Focus on Tex. R. Civ. P. 215 sanctions for late responses. Need to establish pattern of delay.
+                        <br><br>
+                        <strong>Key points:</strong><br>
+                        • 30-day deadline is mandatory<br>
+                        • Can seek sanctions + attorney fees<br>
+                        • Pattern of non-compliance strengthens case
+                    </div>
+                    <div class="note-footer">
+                        <span>2 hours ago</span>
+                        <div class="note-actions">
+                            <span class="note-action">✏️ Edit</span>
+                            <span class="note-action">🗑️ Delete</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-card">
+                    <div class="note-header">
+                        <div style="flex: 1;">
+                            <div class="note-tags">
+                                <span class="note-tag research">Research</span>
+                            </div>
+                            <div class="note-title">Case Law on § 215</div>
+                        </div>
+                        <i data-lucide="pin" class="pin-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
+                    <div class="note-text">
+                        <strong>Smith v. Jones</strong> holds that 30-day deadline is mandatory. Can cite for sanctions motion.
+                        <br><br>
+                        Also see <strong>Doe v. Roe</strong> for attorney fee calculations.
+                    </div>
+                    <div class="note-footer">
+                        <span>Yesterday • 📎 Linked to Motion to Compel</span>
+                        <div class="note-actions">
+                            <span class="note-action">✏️ Edit</span>
+                            <span class="note-action">🗑️ Delete</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-card">
+                    <div class="note-header">
+                        <div style="flex: 1;">
+                            <div class="note-tags">
+                                <span class="note-tag questions">Questions</span>
+                            </div>
+                            <div class="note-title">Attorney Fees</div>
+                        </div>
+                        <i data-lucide="pin" class="pin-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
+                    <div class="note-text">
+                        Can I recover fees under § 215? Need to research precedent.
+                        <br><br>
+                        <em>Update: Yes, per Doe v. Roe</em>
+                    </div>
+                    <div class="note-footer">
+                        <span>2 days ago</span>
+                        <div class="note-actions">
+                            <span class="note-action">✏️ Edit</span>
+                            <span class="note-action">🗑️ Delete</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-card">
+                    <div class="note-header">
+                        <div style="flex: 1;">
+                            <div class="note-tags">
+                                <span class="note-tag strategy">Strategy</span>
+                            </div>
+                            <div class="note-title">MSJ Approach</div>
+                        </div>
+                        <i data-lucide="pin" class="pin-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
+                    <div class="note-text">
+                        Focus on undisputed material facts. Emphasize plaintiff's failure to respond to discovery = admission.
+                    </div>
+                    <div class="note-footer">
+                        <span>3 days ago</span>
+                        <div class="note-actions">
+                            <span class="note-action">✏️ Edit</span>
+                            <span class="note-action">🗑️ Delete</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FULL EDITOR MODE -->
+        <div class="mode-panel" id="mode-editor">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-title">💡 Notes Clerk - Full Editor</div>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Markdown-powered note editing</p>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn-secondary">Preview</button>
+                    <button class="btn-primary">Save Note</button>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 250px 1fr; gap: 20px;">
+                <div>
+                    <div style="background: white; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 16px; margin-bottom: 16px;">
+                        <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 12px;">Note Settings</div>
+                        
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">TITLE</label>
+                            <input type="text" value="Discovery Plan" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.85rem;">
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">TAGS</label>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                                <span class="note-tag strategy">Strategy ×</span>
+                            </div>
+                            <button class="tag-btn" style="width: 100%;">+ Add Tag</button>
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">LINK TO</label>
+                            <select style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.85rem;">
+                                <option>— None —</option>
+                                <option selected>Motion to Compel</option>
+                                <option>MSJ Response</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" checked>
+                                <span style="font-size: 0.85rem;">📌 Pin to top</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style="background: white; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 16px;">
+                        <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 12px;">Markdown Guide</div>
+                        <div style="font-size: 0.75rem; line-height: 1.8; font-family: var(--font-mono); color: var(--text-muted);">
+                            <strong style="color: var(--text-ink);">Headers:</strong><br>
+                            ## Heading 2<br>
+                            <br>
+                            <strong style="color: var(--text-ink);">Format:</strong><br>
+                            **bold**<br>
+                            *italic*<br>
+                            <br>
+                            <strong style="color: var(--text-ink);">Lists:</strong><br>
+                            • Item 1<br>
+                            • Item 2<br>
+                            <br>
+                            <strong style="color: var(--text-ink);">Code:</strong><br>
+                            `inline code`
+                        </div>
+                    </div>
+                </div>
+
+                <div class="editor-panel">
+                    <div class="editor-toolbar">
+                        <button class="toolbar-btn">
+                            <i data-lucide="bold" style="width: 14px; height: 14px;"></i>
+                            Bold
+                        </button>
+                        <button class="toolbar-btn">
+                            <i data-lucide="italic" style="width: 14px; height: 14px;"></i>
+                            Italic
+                        </button>
+                        <button class="toolbar-btn">
+                            <i data-lucide="list" style="width: 14px; height: 14px;"></i>
+                            List
+                        </button>
+                        <button class="toolbar-btn">
+                            <i data-lucide="link" style="width: 14px; height: 14px;"></i>
+                            Link
+                        </button>
+                        <button class="toolbar-btn">
+                            <i data-lucide="code" style="width: 14px; height: 14px;"></i>
+                            Code
+                        </button>
+                        <div style="margin-left: auto; font-size: 0.75rem; color: var(--text-muted);">
+                            Last saved: 2 minutes ago
+                        </div>
+                    </div>
+                    <div class="editor-area" contenteditable="true">## Discovery Strategy
+
+Focus on **Tex. R. Civ. P. 215** sanctions for late responses. Need to establish pattern of delay.
+
+### Key Points
+
+• 30-day deadline is **mandatory** per *Smith v. Jones*
+• Can seek sanctions + attorney fees
+• Pattern of non-compliance strengthens case
+
+### Next Steps
+
+1. Draft motion to compel
+2. Attach meet-and-confer letter as exhibit
+3. Calculate attorney fees (use `Doe v. Roe` methodology)
+
+### Case Law
+
+**Smith v. Jones**, 123 S.W.3d 456 (Tex. App.—Dallas 2003)
+- Holds that discovery deadlines are mandatory
+- Sanctions appropriate for willful non-compliance
+
+**Doe v. Roe**, 456 S.W.3d 789 (Tex. 2010)
+- Attorney fee calculations for discovery abuse
+- Apply reasonable hourly rate × hours spent
+
+---
+
+*Note: Link this to Motion to Compel draft for easy reference.*</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        function switchView(mode) {
+            document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('mode-' + mode).classList.add('active');
+        }
+    </script>
+</body>
+</html>

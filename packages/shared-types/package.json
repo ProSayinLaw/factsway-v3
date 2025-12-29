@@ -1,0 +1,23 @@
+{
+  "name": "@factsway/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types and Feature Registry for FACTSWAY platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "generate:types": "./scripts/generate-typescript.sh",
+    "generate:python": "./scripts/generate-python.sh",
+    "generate:all": "./scripts/generate-all.sh",
+    "build": "tsc",
+    "test": "echo 'No tests yet' && exit 0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.6"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "python"
+  ]
+}

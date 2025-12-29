@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FACTSWAY - Clerk Sidebar System</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+Pro:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* --- DESIGN TOKENS (From existing FACTSWAY style) --- */
+        :root {
+            --bg-desk: #f0f0eb;
+            --bg-paper: #ffffff;
+            --bg-header: #292524;
+            --accent-primary: #c2410c;
+            --accent-gold: #b45309;
+            --accent-link: #3b82f6;
+            --accent-link-bg: #eff6ff;
+            --text-ink: #1f2937;
+            --text-muted: #6b7280;
+            --border-subtle: #d6d3d1;
+            
+            --status-proven: #15803d;
+            --status-gap: #b91c1c;
+            --status-weak: #d97706;
+            
+            --font-serif: 'Source Serif Pro', serif;
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        /* --- BASE STYLES --- */
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            background-color: var(--bg-desk); 
+            color: var(--text-ink);
+            font-family: var(--font-sans); 
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- NAVIGATION --- */
+        .app-nav { 
+            background: var(--bg-header); 
+            height: 50px; 
+            display: flex; 
+            align-items: center; 
+            padding: 0 20px; 
+            color: #f5f5f4; 
+            justify-content: space-between; 
+            flex-shrink: 0;
+        }
+        .brand { 
+            font-family: var(--font-serif); 
+            font-weight: 700; 
+            letter-spacing: 0.05em; 
+            font-size: 1.1rem; 
+        }
+
+        /* --- MAIN LAYOUT --- */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* --- CLERK SIDEBAR --- */
+        .clerk-sidebar {
+            width: 320px;
+            background: #e7e5e4;
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: #d6d3d1;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* --- EXPANDED CLERK PANEL --- */
+        .clerk-panel {
+            background: white;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            margin: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .clerk-panel.collapsed {
+            display: none;
+        }
+
+        .clerk-header {
+            padding: 10px 12px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .clerk-header:hover {
+            background: #f3f4f6;
+        }
+
+        .clerk-title {
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .clerk-icon {
+            font-size: 1rem;
+        }
+
+        .clerk-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .clerk-panel:hover .clerk-actions {
+            opacity: 1;
+        }
+
+        .clerk-icon-btn {
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            opacity: 0.6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            padding: 0;
+        }
+        .clerk-icon-btn:hover { 
+            opacity: 1; 
+            background: #e5e7eb;
+        }
+
+        .clerk-content {
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* --- COLLAPSED CLERK TAB --- */
+        .clerk-tab {
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            border-left: 3px solid transparent;
+            transition: all 0.15s;
+            background: #e7e5e4;
+        }
+        .clerk-tab:hover {
+            background: rgba(255, 255, 255, 0.5);
+            border-left-color: var(--accent-primary);
+        }
+
+        .clerk-tab-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .clerk-badge {
+            background: var(--accent-primary);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* --- TO-DO ITEMS --- */
+        .todo-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        .todo-item:hover {
+            border-color: #9ca3af;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .todo-item.completed {
+            opacity: 0.6;
+        }
+
+        .todo-item.completed .todo-text {
+            text-decoration: line-through;
+        }
+
+        .todo-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #d1d5db;
+            border-radius: 3px;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2px;
+        }
+
+        .todo-checkbox.checked {
+            background: var(--status-proven);
+            border-color: var(--status-proven);
+        }
+
+        .todo-body {
+            flex: 1;
+        }
+
+        .todo-text {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .todo-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 8px;
+        }
+
+        .todo-due {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .todo-due.overdue {
+            color: var(--status-gap);
+            font-weight: 600;
+        }
+
+        .todo-due.soon {
+            color: var(--status-weak);
+            font-weight: 600;
+        }
+
+        .add-btn {
+            width: 100%;
+            padding: 8px;
+            border: 1px dashed #d1d5db;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+        .add-btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            background: rgba(194, 65, 12, 0.05);
+        }
+
+        /* --- NOTES --- */
+        .note-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        .note-card:hover {
+            border-color: #9ca3af;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .note-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .note-tag {
+            background: var(--accent-link-bg);
+            color: var(--accent-link);
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .note-text {
+            font-size: 0.8rem;
+            color: var(--text-ink);
+            line-height: 1.4;
+            margin-bottom: 6px;
+        }
+
+        .note-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* --- EDITOR AREA --- */
+        .editor-area {
+            flex: 1;
+            background: var(--bg-desk);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-toolbar {
+            background: white;
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 4px;
+            padding-right: 8px;
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .toolbar-btn {
+            border: none;
+            background: none;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-ink);
+        }
+        .toolbar-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .paper-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .draft-paper {
+            background: white;
+            width: 100%;
+            max-width: 800px;
+            padding: 96px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            min-height: 1100px;
+            font-family: 'Times New Roman', serif;
+            line-height: 2;
+            font-size: 1.15rem;
+        }
+
+        /* --- SPLIT VIEW OVERLAY --- */
+        .split-overlay {
+            position: fixed;
+            top: 50px;
+            right: 0;
+            bottom: 0;
+            width: 50%;
+            background: white;
+            border-left: 2px solid var(--border-subtle);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+        }
+
+        .split-overlay.active {
+            display: flex;
+        }
+
+        .split-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9fafb;
+        }
+
+        .split-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .close-btn {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            padding: 4px;
+            line-height: 1;
+        }
+        .close-btn:hover {
+            color: var(--text-ink);
+        }
+
+        .split-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        /* Utility */
+        .check-icon {
+            color: white;
+            width: 12px;
+            height: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="app-nav">
+        <div class="brand">FACTSWAY</div>
+        <div style="font-size: 0.8rem; opacity: 0.8;">Motion to Compel Discovery • JS7 v. Cruz</div>
+    </nav>
+
+    <div class="main-container">
+        <!-- CLERK SIDEBAR -->
+        <aside class="clerk-sidebar">
+            <div class="sidebar-header">
+                <span>Clerks</span>
+                <span style="font-size: 0.65rem; opacity: 0.7;">2 active</span>
+            </div>
+
+            <!-- TO-DO CLERK (Expanded by default) -->
+            <div class="clerk-panel" id="panel-todo">
+                <div class="clerk-header" onclick="toggleClerk('todo')">
+                    <div class="clerk-title">
+                        <span class="clerk-icon">📝</span>
+                        <span>To-Do</span>
+                    </div>
+                    <div class="clerk-actions">
+                        <button class="clerk-icon-btn" onclick="event.stopPropagation(); collapseClerk('todo')" title="Collapse">
+                            <i data-lucide="chevron-up" style="width:14px; height:14px;"></i>
+                        </button>
+                        <button class="clerk-icon-btn" onclick="event.stopPropagation(); openSplit('todo')" title="Split View">
+                            <i data-lucide="columns-2" style="width:14px; height:14px;"></i>
+                        </button>
+                        <button class="clerk-icon-btn" onclick="event.stopPropagation(); alert('Float to window')" title="Float">
+                            <i data-lucide="external-link" style="width:14px; height:14px;"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="clerk-content">
+                    <div class="todo-item">
+                        <div class="todo-checkbox" onclick="toggleTodo(this)"></div>
+                        <div class="todo-body">
+                            <div class="todo-text">File Motion for Summary Judgment</div>
+                            <div class="todo-meta">
+                                <div class="todo-due overdue">
+                                    <i data-lucide="calendar" style="width:10px; height:10px;"></i>
+                                    <span>Dec 31, 2024</span>
+                                </div>
+                                <span>HIGH</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="todo-item">
+                        <div class="todo-checkbox" onclick="toggleTodo(this)"></div>
+                        <div class="todo-body">
+                            <div class="todo-text">Respond to Interrogatories Nos. 1-10</div>
+                            <div class="todo-meta">
+                                <div class="todo-due soon">
+                                    <i data-lucide="calendar" style="width:10px; height:10px;"></i>
+                                    <span>Jan 5, 2025</span>
+                                </div>
+                                <span>MED</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="todo-item completed">
+                        <div class="todo-checkbox checked" onclick="toggleTodo(this)">
+                            <i data-lucide="check" class="check-icon"></i>
+                        </div>
+                        <div class="todo-body">
+                            <div class="todo-text">Draft sanctions memo</div>
+                            <div class="todo-meta">
+                                <div class="todo-due">
+                                    <i data-lucide="calendar" style="width:10px; height:10px;"></i>
+                                    <span>Dec 20, 2024</span>
+                                </div>
+                                <span>DONE</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="add-btn">
+                        <i data-lucide="plus" style="width:14px; height:14px;"></i>
+                        <span>Add Task</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- NOTES CLERK (Expanded by default) -->
+            <div class="clerk-panel" id="panel-notes">
+                <div class="clerk-header" onclick="toggleClerk('notes')">
+                    <div class="clerk-title">
+                        <span class="clerk-icon">💡</span>
+                        <span>Notes</span>
+                    </div>
+                    <div class="clerk-actions">
+                        <button class="clerk-icon-btn" onclick="event.stopPropagation(); collapseClerk('notes')" title="Collapse">
+                            <i data-lucide="chevron-up" style="width:14px; height:14px;"></i>
+                        </button>
+                        <button class="clerk-icon-btn" onclick="event.stopPropagation(); openSplit('notes')" title="Split View">
+                            <i data-lucide="columns-2" style="width:14px; height:14px;"></i>
+                        </button>
+                        <button class="clerk-icon-btn" onclick="event.stopPropagation(); alert('Float to window')" title="Float">
+                            <i data-lucide="external-link" style="width:14px; height:14px;"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="clerk-content">
+                    <div class="note-card">
+                        <div class="note-title">
+                            <span class="note-tag">Strategy</span>
+                            <span>Discovery Plan</span>
+                        </div>
+                        <div class="note-text">
+                            Focus on Tex. R. Civ. P. 215 sanctions for late responses. Need to establish pattern of delay.
+                        </div>
+                        <div class="note-meta">
+                            <span>2 hours ago</span>
+                            <span style="opacity: 0.5;">✏️ Edit</span>
+                        </div>
+                    </div>
+
+                    <div class="note-card">
+                        <div class="note-title">
+                            <span class="note-tag">Research</span>
+                            <span>Case Law on § 215</span>
+                        </div>
+                        <div class="note-text">
+                            Smith v. Jones holds that 30-day deadline is mandatory. Can cite for sanctions motion.
+                        </div>
+                        <div class="note-meta">
+                            <span>Yesterday</span>
+                            <span style="opacity: 0.5;">📎 Linked to draft</span>
+                        </div>
+                    </div>
+
+                    <button class="add-btn">
+                        <i data-lucide="plus" style="width:14px; height:14px;"></i>
+                        <span>Quick Note</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- COLLAPSED CLERK TABS -->
+            <div class="clerk-tab" onclick="expandClerk('facts')">
+                <div class="clerk-tab-label">
+                    <span>🔍</span>
+                    <span>Facts</span>
+                </div>
+                <span class="clerk-badge">12</span>
+            </div>
+
+            <div class="clerk-tab" onclick="expandClerk('exhibits')">
+                <div class="clerk-tab-label">
+                    <span>📎</span>
+                    <span>Exhibits</span>
+                </div>
+                <span class="clerk-badge">5</span>
+            </div>
+
+            <div class="clerk-tab" onclick="expandClerk('discovery')">
+                <div class="clerk-tab-label">
+                    <span>📊</span>
+                    <span>Discovery</span>
+                </div>
+            </div>
+
+            <div class="clerk-tab" onclick="expandClerk('caseblock')">
+                <div class="clerk-tab-label">
+                    <span>⚖️</span>
+                    <span>Caseblock</span>
+                </div>
+            </div>
+
+            <div class="clerk-tab" onclick="expandClerk('signature')">
+                <div class="clerk-tab-label">
+                    <span>✍️</span>
+                    <span>Signature</span>
+                </div>
+            </div>
+
+            <div class="clerk-tab" onclick="expandClerk('communication')">
+                <div class="clerk-tab-label">
+                    <span>📧</span>
+                    <span>Communication</span>
+                </div>
+            </div>
+
+            <div class="clerk-tab" onclick="expandClerk('analysis')">
+                <div class="clerk-tab-label">
+                    <span>🔬</span>
+                    <span>Analysis</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- EDITOR AREA -->
+        <main class="editor-area">
+            <div class="editor-toolbar">
+                <div class="toolbar-group">
+                    <button class="toolbar-btn" style="font-weight:700;">B</button>
+                    <button class="toolbar-btn" style="font-style:italic;">I</button>
+                    <button class="toolbar-btn" style="text-decoration:underline;">U</button>
+                </div>
+                <div class="toolbar-group">
+                    <button class="toolbar-btn">H1</button>
+                    <button class="toolbar-btn">H2</button>
+                    <button class="toolbar-btn">H3</button>
+                </div>
+                <button class="toolbar-btn" style="background: var(--accent-link-bg); color: var(--accent-link); border-radius: 4px;">
+                    + Citation
+                </button>
+                <button class="toolbar-btn" style="background: #E8F4FC; color: #1E5A8A; border-radius: 4px;">
+                    {{ }} Variable
+                </button>
+                <div style="margin-left: auto;">
+                    <button class="toolbar-btn" style="background: var(--accent-primary); color: white; padding: 6px 16px; border-radius: 4px;">
+                        Export
+                    </button>
+                </div>
+            </div>
+
+            <div class="paper-scroll">
+                <div class="draft-paper">
+                    <p style="text-align:center; color:var(--text-muted); margin-bottom:40px;">[CASE CAPTION]</p>
+                    
+                    <h2 style="text-align:center; text-transform:uppercase; font-size:1rem; font-weight:bold; margin-bottom: 40px;">
+                        DEFENDANT'S MOTION TO COMPEL DISCOVERY RESPONSES
+                    </h2>
+                    
+                    <h3 style="text-align:center; text-transform:uppercase; font-size:0.95rem; font-weight:bold; margin-top: 40px;">
+                        I. INTRODUCTION
+                    </h3>
+                    
+                    <p>
+                        Defendant moves this Court to compel Plaintiff to provide complete responses to Defendant's First Set of Interrogatories and Requests for Production, served on November 1, 2024. Plaintiff's responses are now over 45 days overdue.
+                    </p>
+                    
+                    <h3 style="text-align:center; text-transform:uppercase; font-size:0.95rem; font-weight:bold; margin-top: 40px;">
+                        II. FACTS
+                    </h3>
+                    
+                    <p>
+                        On November 1, 2024, Defendant served Interrogatories Nos. 1-10 and Requests for Production Nos. 1-15 on Plaintiff. Under Texas Rule of Civil Procedure 33, responses were due by December 1, 2024. As of this date, Plaintiff has failed to provide any responses.
+                    </p>
+                    
+                    <p>
+                        Defendant's counsel sent a meet-and-confer letter on December 5, 2024, requesting immediate compliance. Plaintiff's counsel has not responded.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- SPLIT VIEW OVERLAY -->
+    <div class="split-overlay" id="split-view">
+        <div class="split-header">
+            <div class="split-title" id="split-title">To-Do Clerk</div>
+            <button class="close-btn" onclick="closeSplit()">×</button>
+        </div>
+        <div class="split-content" id="split-body">
+            <!-- Content loaded dynamically -->
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // Toggle clerk panel expansion
+        function toggleClerk(clerkId) {
+            const panel = document.getElementById('panel-' + clerkId);
+            panel.classList.toggle('collapsed');
+            lucide.createIcons();
+        }
+
+        // Collapse clerk to tab
+        function collapseClerk(clerkId) {
+            const panel = document.getElementById('panel-' + clerkId);
+            panel.classList.add('collapsed');
+        }
+
+        // Expand clerk from tab
+        function expandClerk(clerkId) {
+            alert('Expanding ' + clerkId + ' clerk panel...\n\nThis would create a new panel above the tabs with that clerk\'s content.');
+        }
+
+        // Open clerk in split view
+        function openSplit(clerkId) {
+            const splitView = document.getElementById('split-view');
+            const splitTitle = document.getElementById('split-title');
+            const splitBody = document.getElementById('split-body');
+
+            if (clerkId === 'todo') {
+                splitTitle.textContent = 'To-Do Clerk - Full View';
+                splitBody.innerHTML = `
+                    <h3 style="margin-top:0; font-family: var(--font-serif);">All Tasks</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+                        Managing tasks for JS7 Investments v. Cruz
+                    </p>
+                    <div style="background: #fffbeb; border: 1px solid #fbbf24; border-radius: 4px; padding: 12px; margin-bottom: 20px;">
+                        <strong style="color: #92400e;">⚠️ 1 Overdue Task</strong>
+                    </div>
+                    <p style="font-size: 0.9rem;">Full task list with calendar integration, priority settings, and deadline tracking would appear here...</p>
+                `;
+            } else if (clerkId === 'notes') {
+                splitTitle.textContent = 'Notes Clerk - Full View';
+                splitBody.innerHTML = `
+                    <h3 style="margin-top:0; font-family: var(--font-serif);">All Notes</h3>
+                    <input type="text" placeholder="Search notes..." style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 20px;">
+                    <p style="font-size: 0.9rem;">Full notes view with markdown editor, tag management, and document linking would appear here...</p>
+                `;
+            }
+
+            splitView.classList.add('active');
+        }
+
+        function closeSplit() {
+            document.getElementById('split-view').classList.remove('active');
+        }
+
+        // Toggle todo checkbox
+        function toggleTodo(checkbox) {
+            checkbox.classList.toggle('checked');
+            checkbox.closest('.todo-item').classList.toggle('completed');
+            
+            if (checkbox.classList.contains('checked')) {
+                checkbox.innerHTML = '<i data-lucide="check" class="check-icon"></i>';
+            } else {
+                checkbox.innerHTML = '';
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>

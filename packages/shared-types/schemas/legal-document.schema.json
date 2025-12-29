@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LegalDocument",
+  "description": "Canonical legal document format for FACTSWAY platform",
+  "type": "object",
+  "required": ["meta", "body"],
+  "properties": {
+    "meta": {
+      "$ref": "#/definitions/DocumentMeta"
+    },
+    "body": {
+      "$ref": "#/definitions/DocumentBody"
+    }
+  },
+  "definitions": {
+    "DocumentMeta": {
+      "type": "object",
+      "required": ["documentId", "caseId", "type", "createdAt", "updatedAt"],
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "description": "ULID for document"
+        },
+        "caseId": {
+          "type": "string",
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "description": "ULID for parent case"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["motion", "response", "reply", "order", "pleading", "discovery"],
+          "description": "Document type"
+        },
+        "title": {
+          "type": "string",
+          "description": "Document title"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "DocumentBody": {
+      "type": "object",
+      "required": ["sections"],
+      "properties": {
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Section"
+          }
+        }
+      }
+    },
+    "Section": {
+      "type": "object",
+      "required": ["sectionId", "type", "level"],
+      "properties": {
+        "sectionId": {
+          "type": "string",
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["heading", "paragraph", "list", "signature", "caseblock"]
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "content": {
+          "oneOf": [
+            { "$ref": "#/definitions/HeadingContent" },
+            { "$ref": "#/definitions/ParagraphContent" },
+            { "$ref": "#/definitions/ListContent" }
+          ]
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Section"
+          }
+        }
+      }
+    },
+    "HeadingContent": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "numbering": {
+          "type": "string",
+          "description": "Section numbering like 'I.', 'A.', '1.'"
+        }
+      }
+    },
+    "ParagraphContent": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Plain text content (authoritative)"
+        },
+        "sentences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Sentence"
+          }
+        }
+      }
+    },
+    "Sentence": {
+      "type": "object",
+      "required": ["sentenceId", "text", "start", "end"],
+      "properties": {
+        "sentenceId": {
+          "type": "string",
+          "pattern": "^sent_[a-f0-9]{16}$",
+          "description": "Content-based hash for stability"
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "type": "integer",
+          "description": "Character offset in paragraph"
+        },
+        "end": {
+          "type": "integer",
+          "description": "Character offset in paragraph"
+        }
+      }
+    },
+    "ListContent": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "listType": {
+          "type": "string",
+          "enum": ["bullet", "numbered", "lettered"]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["text"],
+            "properties": {
+              "text": { "type": "string" },
+              "marker": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

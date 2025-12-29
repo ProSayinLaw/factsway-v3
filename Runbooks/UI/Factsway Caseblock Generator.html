@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factsway - CaseBlock Architect</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+Pro:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        :root {
+            --bg-desk: #f0f0eb;
+            --bg-paper: #ffffff;
+            --accent-folder: #c2410c; 
+            --accent-gold: #b45309;
+            --text-ink: #1f2937;
+            --text-muted: #6b7280;
+            --border-subtle: #d6d3d1;
+            
+            /* UI Elements */
+            --control-bg: #ffffff;
+            --control-border: #d1d5db;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-desk);
+            color: var(--text-ink);
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- Tabs --- */
+        .binder-nav {
+            background: #292524;
+            padding: 12px 40px 0 40px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .tab {
+            background: #44403c;
+            color: #a8a29e;
+            padding: 10px 24px;
+            border-radius: 6px 6px 0 0;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: 1px solid #44403c;
+            border-bottom: none;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            background: var(--bg-desk); color: var(--text-ink); font-weight: 600;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.1); border-color: #d6d3d1;
+            padding-bottom: 12px; margin-bottom: -1px; z-index: 10;
+        }
+
+        /* --- Workspace --- */
+        .workspace {
+            display: grid;
+            grid-template-columns: 460px 1fr;
+            gap: 30px;
+            padding: 30px 40px;
+            height: 100%;
+            overflow-y: hidden;
+        }
+
+        /* --- LEFT PANEL: Controls --- */
+        .control-scroll {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            padding-right: 12px;
+            padding-bottom: 40px;
+        }
+
+        /* Header / Preset Selector */
+        .preset-bar {
+            display: flex; gap: 10px; margin-bottom: 10px;
+        }
+        .preset-btn {
+            flex: 1; padding: 8px; border: 1px solid var(--border-subtle);
+            background: white; border-radius: 4px; font-size: 0.8rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .preset-btn.active { background: var(--text-ink); color: white; border-color: var(--text-ink); }
+
+        /* Section Header */
+        .drawer-header {
+            font-family: 'Source Serif Pro', serif;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text-ink);
+            border-bottom: 2px solid var(--accent-folder);
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Control Card */
+        .setting-card {
+            background: white;
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        /* Grid for Inputs */
+        .control-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;
+        }
+        .full-width { grid-column: span 2; }
+
+        .label {
+            font-size: 0.65rem; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; margin-bottom: 6px; display: block;
+        }
+
+        .input-box {
+            width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 0.85rem;
+            border: 1px solid var(--control-border); border-radius: 4px; font-family: 'Inter', sans-serif;
+        }
+        .input-box.number { font-family: 'JetBrains Mono', monospace; }
+
+        /* Custom Select */
+        .custom-select {
+            appearance: none; background: white;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007CB2%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat; background-position: right .7em top 50%; background-size: .65em auto;
+        }
+
+        /* Case Toggles (ALL CAPS vs Title) */
+        .case-toggle {
+            display: flex; border: 1px solid var(--control-border); border-radius: 4px; overflow: hidden;
+        }
+        .ct-opt {
+            flex: 1; text-align: center; padding: 6px; font-size: 0.7rem; cursor: pointer; background: #f9fafb;
+        }
+        .ct-opt.active { background: var(--text-ink); color: white; font-weight: 600; }
+
+        /* The Checkbox Row */
+        .checkbox-row {
+            display: flex; align-items: center; gap: 8px; margin-top: 8px; cursor: pointer;
+        }
+        .checkbox-box {
+            width: 14px; height: 14px; border: 1px solid var(--control-border); border-radius: 3px;
+        }
+        .checkbox-box.checked { background: var(--accent-folder); border-color: var(--accent-folder); }
+        .cb-label { font-size: 0.8rem; }
+
+
+        /* --- RIGHT PANEL: Preview --- */
+        .preview-area {
+            display: flex; justify-content: center; overflow-y: auto;
+            background: #e5e5e5; border-radius: 4px; padding: 40px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1); position: relative;
+        }
+
+        .paper-sheet {
+            background: white; width: 100%; max-width: 800px; min-height: 1000px;
+            padding: 60px 80px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            font-family: 'Times New Roman', Times, serif; color: black;
+            display: flex; flex-direction: column; position: relative;
+        }
+
+        /* Approved Badge */
+        .approved-badge {
+            position: absolute; top: 20px; right: 20px;
+            background: #dcfce7; color: #166534; border: 1px solid #166534;
+            padding: 4px 12px; border-radius: 100px; font-size: 0.7rem; font-weight: 700; font-family: 'Inter';
+            display: flex; align-items: center; gap: 4px;
+        }
+
+        /* Caption CSS */
+        .caption-table { width: 100%; border-collapse: collapse; }
+        .td-parties { width: 45%; vertical-align: top; padding-right: 20px; }
+        .td-brace { width: 10%; vertical-align: top; text-align: center; font-size: 1.1rem; }
+        .td-court { width: 45%; vertical-align: top; text-align: right; }
+
+        .party-group { margin-bottom: 24px; }
+        .p-name { display: block; font-weight: bold; text-transform: uppercase; line-height: 1.3; }
+        .p-role { display: block; font-style: italic; margin-top: 4px; margin-left: 36px; font-size: 0.95rem; }
+
+        .court-block { line-height: 1.6; font-size: 1rem; }
+        .doc-title {
+            text-align: center; font-weight: bold; text-decoration: underline;
+            text-transform: uppercase; margin-top: 40px; padding-top: 20px;
+            border-top: 2px solid black; font-size: 1.1rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <nav class="binder-nav">
+        <div class="tab">Drafting</div>
+        <div class="tab active">CaseBlock Architect</div>
+        <div class="tab">Signature</div>
+        <div class="tab">Vault</div>
+    </nav>
+
+    <div class="workspace">
+        
+        <aside class="control-scroll">
+            
+            <div class="preset-bar">
+                <div class="preset-btn active"><i data-lucide="layout" size="14"></i> Default Caption</div>
+                <div class="preset-btn"><i data-lucide="upload-cloud" size="14"></i> Upload New</div>
+            </div>
+
+            <div class="drawer-header">
+                <span>LAYOUT ENGINE</span>
+                <i data-lucide="sliders" size="14"></i>
+            </div>
+            
+            <div class="setting-card">
+                <div class="label" style="border-bottom:1px dashed #eee; padding-bottom:4px; margin-bottom:8px;">Court / Jurisdiction</div>
+                <div class="control-grid">
+                    <div>
+                        <span class="label">Text Case</span>
+                        <div class="case-toggle">
+                            <div class="ct-opt active">ALL CAPS</div>
+                            <div class="ct-opt">Title Case</div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="label">Line Spacing (pt)</span>
+                        <input type="number" class="input-box number" value="0">
+                    </div>
+                    <div class="full-width">
+                        <span class="label">Alignment</span>
+                        <select class="input-box custom-select">
+                            <option>Left</option>
+                            <option>Right</option>
+                            <option selected>Center</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="label" style="border-bottom:1px dashed #eee; padding-bottom:4px; margin-bottom:8px; margin-top:16px;">Cause Number</div>
+                <div class="control-grid">
+                    <div>
+                        <span class="label">Prefix</span>
+                        <input type="text" class="input-box" value="Cause No.">
+                    </div>
+                    <div>
+                        <span class="label">Text Case</span>
+                        <div class="case-toggle">
+                            <div class="ct-opt active">ALL CAPS</div>
+                            <div class="ct-opt">Title Case</div>
+                        </div>
+                    </div>
+                    <div class="full-width">
+                        <span class="label">Alignment</span>
+                        <select class="input-box custom-select">
+                            <option>Center (Top)</option>
+                            <option>Right (Block)</option>
+                            <option>Left (Block)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="drawer-header">
+                <span>TYPOGRAPHY & PARTIES</span>
+                <i data-lucide="type" size="14"></i>
+            </div>
+
+            <div class="setting-card">
+                 <div class="control-grid">
+                    <div>
+                        <span class="label">Font Size (pt)</span>
+                        <input type="number" class="input-box number" value="12">
+                    </div>
+                    <div>
+                        <span class="label">Line Spacing (x)</span>
+                        <input type="number" class="input-box number" value="1.15">
+                    </div>
+                </div>
+
+                <div class="label" style="border-bottom:1px dashed #eee; padding-bottom:4px; margin-bottom:8px;">Party List Format</div>
+                <div class="control-grid">
+                    <div class="full-width">
+                        <span class="label">Render Style</span>
+                        <select class="input-box custom-select">
+                            <option selected>One party per line</option>
+                            <option>Comma separated</option>
+                            <option>Semi-colon separated</option>
+                        </select>
+                    </div>
+                    <div>
+                         <span class="label">Role Label Indent (pt)</span>
+                         <input type="number" class="input-box number" value="36">
+                    </div>
+                    <div>
+                        <span class="label">Party Alignment</span>
+                        <select class="input-box custom-select">
+                            <option selected>Left</option>
+                            <option>Justified</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="checkbox-row">
+                    <div class="checkbox-box"></div>
+                    <span class="cb-label">Italicize party names</span>
+                </div>
+                <div class="checkbox-row">
+                    <div class="checkbox-box checked"></div>
+                    <span class="cb-label">Italicize role labels</span>
+                </div>
+            </div>
+
+            <div class="drawer-header">
+                <span>CASE INFORMATION</span>
+                <i data-lucide="database" size="14"></i>
+            </div>
+            
+            <div class="setting-card">
+                <span class="label">Cause Number</span>
+                <input type="text" class="input-box" value="2022-CI-08479" style="margin-bottom:12px;">
+
+                <span class="label">Parties (Active)</span>
+                <div style="background:#f9fafb; border:1px solid #eee; padding:8px; font-size:0.8rem;">
+                    <div>1. JS7 INVESTMENTS, LLC</div>
+                    <div style="margin-top:4px;">2. WELCOME HOME CLUB, LLC</div>
+                    <div style="margin-top:4px;">3. ALEX CRUZ</div>
+                    <div style="margin-top:8px; color:var(--accent-folder); font-size:0.7rem; cursor:pointer;">+ Edit Party List</div>
+                </div>
+            </div>
+
+        </aside>
+
+
+        <main class="preview-area">
+            <div class="paper-sheet">
+                
+                <div class="approved-badge">
+                    <i data-lucide="check" size="12"></i> APPROVED
+                </div>
+
+                <div style="text-align: center; font-weight: bold; font-size: 1.1rem; margin-bottom: 24px;">
+                    CAUSE NO. 2022-CI-08479
+                </div>
+
+                <table class="caption-table">
+                    <tr>
+                        <td class="td-parties">
+                            <div class="party-group">
+                                <span class="p-name">JS7 INVESTMENTS, LLC</span>
+                                <span class="p-role">Plaintiff,</span>
+                            </div>
+
+                            <div class="party-group">
+                                v.
+                            </div>
+
+                            <div class="party-group">
+                                <span class="p-name">WELCOME HOME CLUB, LLC</span>
+                                <span class="p-name">ALEX CRUZ</span>
+                                <span class="p-name">MARCUS CRUZ</span>
+                                <span class="p-name">MANUEL M. ESPARRAGO-GOMEZ</span>
+                                <span class="p-name">LONG N VO</span>
+                                <span class="p-role">Defendants,</span>
+                            </div>
+
+                            <div class="party-group">
+                                and
+                            </div>
+
+                             <div class="party-group">
+                                <span class="p-name">ALEX CRUZ</span>
+                                <span class="p-role">Counter-Plaintiff,</span>
+                            </div>
+
+                             <div class="party-group">
+                                v.
+                            </div>
+
+                             <div class="party-group">
+                                <span class="p-name">JS7 INVESTMENTS, LLC</span>
+                                <span class="p-name">JAGATH SANTHA</span>
+                                <span class="p-name">CALISTA SANTHA</span>
+                                <span class="p-role">Counter-Defendants.</span>
+                            </div>
+                        </td>
+
+                        <td class="td-brace">
+                            §<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§<br>§
+                        </td>
+
+                        <td class="td-court">
+                            <div class="court-block">
+                                IN THE DISTRICT COURT<br><br>
+                                57TH JUDICIAL DISTRICT<br><br>
+                                BEXAR COUNTY, TEXAS
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="doc-title">
+                    [MOTION TITLE]
+                </div>
+
+                <hr style="border:0; border-bottom:1px solid black; margin-top:40px;">
+
+            </div>
+        </main>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
